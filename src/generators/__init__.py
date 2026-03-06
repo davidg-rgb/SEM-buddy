@@ -17,5 +17,7 @@ from src.generators.campaign_builder import build_campaigns
 from src.generators.csv_exporter import export_campaign_plan
 from src.generators.report_generator import (
     generate_strategy_report,
+    export_pdf_report,
     export_keyword_xlsx,
 )
+from src.generators.pdf_generator import generate_pdf_report

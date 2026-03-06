@@ -68,42 +68,42 @@ def _executive_summary(client: ClientProfile, campaign_plan: CampaignPlan) -> st
 
     locations = ", ".join(g.name for g in client.geographic_targets) or "Hela Sverige"
 
-    return f"""## Executive Summary
+    return f"""## Sammanfattning
 
-Vi rekommenderar en Google Ads-strategi for {client.business_name} med fokus pa
+Vi rekommenderar en Google Ads-strategi för {client.business_name} med fokus på
 {', '.join(client.products_services[:3])} i {locations}.
 
 **Strategi i korthet:**
 - **{total_campaigns}** kampanjer med **{total_ad_groups}** annonsgrupper
-- **{total_keywords}** sokord med anpassade matchningstyper
-- Manadsbudget: **{client.monthly_budget_sek:,} SEK**
-- Mal: {client.campaign_goals[0].goal_type if client.campaign_goals else 'Okad trafik och konverteringar'}
+- **{total_keywords}** sökord med anpassade matchningstyper
+- Månadsbudget: **{client.monthly_budget_sek:,} SEK**
+- Mål: {client.campaign_goals[0].goal_type if client.campaign_goals else 'Ökad trafik och konverteringar'}
 
-Strategin bygger pa en kombination av sokordsanalys, konkurrentanalys och
-analys av {client.business_name}s digitala narvaro.
+Strategin bygger på en kombination av sökordsanalys, konkurrentanalys och
+analys av {client.business_name}s digitala närvaro.
 """
 
 
 def _business_analysis(client: ClientProfile, digital_presence: DigitalPresence) -> str:
     """Generate business analysis section."""
     lines = [
-        "## Business Analysis\n",
-        "### Company Overview\n",
-        f"- **Foretag:** {client.business_name}",
+        "## Affärsanalys\n",
+        "### Företagsöversikt\n",
+        f"- **Företag:** {client.business_name}",
         f"- **Bransch:** {client.industry}",
         f"- **Webbplats:** {client.website_url}",
-        f"- **Malgrupp:** {client.target_audience.b2b_or_b2c.upper()}",
+        f"- **Målgrupp:** {client.target_audience.b2b_or_b2c.upper()}",
         f"- **Geografiskt fokus:** {', '.join(g.name for g in client.geographic_targets) or 'Ej specificerat'}",
-        f"- **Tjanster:** {', '.join(client.products_services) or 'Ej specificerat'}",
+        f"- **Tjänster:** {', '.join(client.products_services) or 'Ej specificerat'}",
         "",
     ]
 
     # Digital presence insights
     if digital_presence:
-        lines.append("### Digital Narvaro\n")
+        lines.append("### Digital närvaro\n")
         if digital_presence.site_crawl:
             lines.append(f"- **Antal sidor crawlade:** {digital_presence.site_crawl.total_pages}")
-            lines.append(f"- **Sprak:** {digital_presence.site_crawl.primary_language}")
+            lines.append(f"- **Språk:** {digital_presence.site_crawl.primary_language}")
         if digital_presence.google_business:
             gb = digital_presence.google_business
             lines.append(f"- **Google Business betyg:** {gb.rating}/5 ({gb.review_count} recensioner)")
@@ -114,11 +114,11 @@ def _business_analysis(client: ClientProfile, digital_presence: DigitalPresence)
 
     # Goals
     if client.campaign_goals:
-        lines.append("### Mal & KPI:er\n")
+        lines.append("### Mål & KPI:er\n")
         lines.append("| KPI | Prioritet |")
         lines.append("|-----|----------|")
         for goal in client.campaign_goals:
-            cpa = f" (Mal-CPA: {goal.target_cpa_sek} SEK)" if goal.target_cpa_sek else ""
+            cpa = f" (Mål-CPA: {goal.target_cpa_sek} SEK)" if goal.target_cpa_sek else ""
             lines.append(f"| {goal.goal_type} | {goal.priority}{cpa} |")
         lines.append("")
 
@@ -128,16 +128,16 @@ def _business_analysis(client: ClientProfile, digital_presence: DigitalPresence)
 def _competitive_landscape(competitors: list[CompetitorProfile]) -> str:
     """Generate competitive landscape section."""
     if not competitors:
-        return "## Competitive Landscape\n\nIngen konkurrentdata tillganglig.\n"
+        return "## Konkurrenslandskap\n\nIngen konkurrentdata tillgänglig.\n"
 
     lines = [
-        "## Competitive Landscape\n",
-        "| Konkurrent | Doman | Est. Manadsbudget | Antal Annonser | Nyckelord |",
+        "## Konkurrenslandskap\n",
+        "| Konkurrent | Domän | Est. Månadsbudget | Antal Annonser | Nyckelord |",
         "|------------|-------|-------------------|----------------|-----------|",
     ]
 
     for comp in competitors:
-        spend = f"{comp.estimated_monthly_spend_sek:,.0f} SEK" if comp.estimated_monthly_spend_sek else "Okant"
+        spend = f"{comp.estimated_monthly_spend_sek:,.0f} SEK" if comp.estimated_monthly_spend_sek else "Okänt"
         ad_count = len(comp.transparency_ads)
         kw_sample = ", ".join(comp.top_keywords[:3]) if comp.top_keywords else "-"
         lines.append(f"| {comp.name} | {comp.domain} | {spend} | {ad_count} | {kw_sample} |")
@@ -149,7 +149,7 @@ def _competitive_landscape(competitors: list[CompetitorProfile]) -> str:
     for comp in competitors:
         all_patterns.extend(comp.ad_copy_patterns)
     if all_patterns:
-        lines.append("### Vanliga annonsmonster hos konkurrenter\n")
+        lines.append("### Vanliga annonsmönster hos konkurrenter\n")
         for pattern in set(all_patterns):
             lines.append(f"- {pattern}")
         lines.append("")
@@ -160,9 +160,9 @@ def _competitive_landscape(competitors: list[CompetitorProfile]) -> str:
 def _keyword_strategy(keyword_data: dict) -> str:
     """Generate keyword strategy section."""
     lines = [
-        "## Keyword Strategy\n",
-        "### Sokordsgrupper\n",
-        "| Tema | Antal Sokord | Matchningstyper |",
+        "## Sökordsstrategi\n",
+        "### Sökordsgrupper\n",
+        "| Tema | Antal Sökord | Matchningstyper |",
         "|------|-------------|-----------------|",
     ]
 
@@ -182,12 +182,12 @@ def _keyword_strategy(keyword_data: dict) -> str:
     # Negative keywords summary
     negatives = keyword_data.get("negatives", [])
     if negatives:
-        lines.append(f"### Negativa Sokord\n")
-        lines.append(f"Totalt **{len(negatives)}** negativa sokord konfigurerade for att forhindra irrelevanta klick.\n")
+        lines.append(f"### Negativa sökord\n")
+        lines.append(f"Totalt **{len(negatives)}** negativa sökord konfigurerade för att förhindra irrelevanta klick.\n")
         lines.append("**Kategorier:**")
-        lines.append(f"- Jobbsokningar, DIY, gratis-sokningar, akademiska sokningar")
-        lines.append(f"- Klagomal och reklamationer")
-        lines.append(f"- Informationssokningar utan kopintention")
+        lines.append(f"- Jobbsökningar, DIY, gratis-sökningar, akademiska sökningar")
+        lines.append(f"- Klagomål och reklamationer")
+        lines.append(f"- Informationssökningar utan köpintention")
         lines.append("")
 
     return "\n".join(lines)
@@ -196,8 +196,8 @@ def _keyword_strategy(keyword_data: dict) -> str:
 def _campaign_structure(campaign_plan: CampaignPlan) -> str:
     """Generate campaign structure section."""
     lines = [
-        "## Campaign Structure\n",
-        "### Oversikt\n",
+        "## Kampanjstruktur\n",
+        "### Översikt\n",
         "```",
         "Konto",
     ]
@@ -206,12 +206,12 @@ def _campaign_structure(campaign_plan: CampaignPlan) -> str:
         lines.append(f"  Kampanj: {campaign.name}")
         for ag in campaign.ad_groups:
             kw_count = len(ag.keywords)
-            lines.append(f"    Annonsgrupp: {ag.name} ({kw_count} sokord)")
+            lines.append(f"    Annonsgrupp: {ag.name} ({kw_count} sökord)")
 
     lines.extend([
         "```\n",
-        "### Kampanjinstallningar\n",
-        "| Kampanj | Typ | Budget/Dag (SEK) | Budstrategi | Sprak |",
+        "### Kampanjinställningar\n",
+        "| Kampanj | Typ | Budget/Dag (SEK) | Budstrategi | Språk |",
         "|---------|-----|-------------------|-------------|-------|",
     ])
 
@@ -229,7 +229,7 @@ def _campaign_structure(campaign_plan: CampaignPlan) -> str:
 def _ad_copy_section(campaign_plan: CampaignPlan) -> str:
     """Generate ad copy section."""
     lines = [
-        "## Ad Copy\n",
+        "## Annonstext\n",
         "### Responsive Search Ads\n",
     ]
 
@@ -267,9 +267,9 @@ def _ad_copy_section(campaign_plan: CampaignPlan) -> str:
 def _budget_bidding_plan(client: ClientProfile, campaign_plan: CampaignPlan) -> str:
     """Generate budget and bidding plan section."""
     lines = [
-        "## Budget & Bidding Plan\n",
-        "### Manadsbudget\n",
-        "| Kampanj | Manadsbudget (SEK) | Budstrategi |",
+        "## Budget & Budstrategi\n",
+        "### Månadsbudget\n",
+        "| Kampanj | Månadsbudget (SEK) | Budstrategi |",
         "|---------|-------------------|-------------|",
     ]
 
@@ -286,9 +286,9 @@ def _budget_bidding_plan(client: ClientProfile, campaign_plan: CampaignPlan) -> 
     lines.append("### Upptrappningsplan\n")
     lines.append("| Fas | Period | Budget | Fokus |")
     lines.append("|-----|--------|--------|-------|")
-    lines.append(f"| Inlarning | Vecka 1-2 | {client.monthly_budget_sek * 0.7:,.0f} SEK | Datainsamling, breda tester |")
-    lines.append(f"| Optimering | Vecka 3-6 | {client.monthly_budget_sek:,.0f} SEK | Forfina sokord och annonser |")
-    lines.append(f"| Skalning | Vecka 7+ | {client.monthly_budget_sek * 1.3:,.0f} SEK | Oka budget pa vinnare |")
+    lines.append(f"| Inlärning | Vecka 1-2 | {client.monthly_budget_sek * 0.7:,.0f} SEK | Datainsamling, breda tester |")
+    lines.append(f"| Optimering | Vecka 3-6 | {client.monthly_budget_sek:,.0f} SEK | Förfina sökord och annonser |")
+    lines.append(f"| Skalning | Vecka 7+ | {client.monthly_budget_sek * 1.3:,.0f} SEK | Öka budget på vinnare |")
     lines.append("")
 
     return "\n".join(lines)
@@ -296,33 +296,63 @@ def _budget_bidding_plan(client: ClientProfile, campaign_plan: CampaignPlan) -> 
 
 def _implementation_roadmap() -> str:
     """Generate implementation roadmap (4 phases)."""
-    return """## Implementation Roadmap
+    return """## Implementeringsplan
 
 ### Fas 1: Setup (Vecka 1)
 - [ ] Konfigurera kampanjstruktur i Google Ads Editor
-- [ ] Implementera konverteringsspaning
-- [ ] Satt upp negativa sokordlistor
-- [ ] Skapa annonstexter och tillagg
+- [ ] Implementera konverteringsspårning
+- [ ] Sätt upp negativa sökordlistor
+- [ ] Skapa annonstexter och tillägg
 - [ ] Konfigurera budstrategi
 
 ### Fas 2: Datainsamling (Vecka 2-4)
 - [ ] Lansera kampanjer
-- [ ] Daglig overvakning av spend och prestanda
-- [ ] Granskning av soktermsrapporter
-- [ ] Lagg till negativa sokord efter behov
+- [ ] Daglig övervakning av spend och prestanda
+- [ ] Granskning av söktermrapporter
+- [ ] Lägg till negativa sökord efter behov
 
 ### Fas 3: Optimering (Vecka 5-8)
 - [ ] A/B-testa annonsvarianter
 - [ ] Justera bud per enhet, plats, tid
-- [ ] Pausa underpresterande sokord
-- [ ] Expandera framgangsrika sokordsteman
+- [ ] Pausa underpresterande sökord
+- [ ] Expandera framgångsrika sökordsteman
 
 ### Fas 4: Skalning (Vecka 9+)
-- [ ] Oka budget pa toppkampanjer
-- [ ] Utforska nya sokordsmojligheter
+- [ ] Öka budget på toppkampanjer
+- [ ] Utforska nya sökordsmöjligheter
 - [ ] Testa nya annonsformat
-- [ ] Manadsvis prestandarapportering
+- [ ] Månadsvis prestandarapportering
 """
+
+
+def export_pdf_report(
+    client: ClientProfile,
+    digital_presence: DigitalPresence,
+    competitors: list[CompetitorProfile],
+    campaign_plan: CampaignPlan,
+    keyword_data: dict,
+    output_path: str,
+) -> str:
+    """Generate a strategy report and export it as PDF.
+
+    Args:
+        client: Client profile data
+        digital_presence: Digital presence analysis
+        competitors: Competitor profiles
+        campaign_plan: Campaign plan data
+        keyword_data: Keyword research data
+        output_path: Path to write the PDF file
+
+    Returns:
+        The output path of the generated PDF
+    """
+    from src.generators.pdf_generator import generate_pdf_report
+
+    markdown_content = generate_strategy_report(
+        client, digital_presence, competitors, campaign_plan, keyword_data
+    )
+    title = f"{client.business_name} - Google Ads Strategy Report"
+    return generate_pdf_report(markdown_content, output_path, title=title)
 
 
 def export_keyword_xlsx(keyword_data: dict, output_path: str) -> str:
@@ -349,7 +379,7 @@ def export_keyword_xlsx(keyword_data: dict, output_path: str) -> str:
         ws = wb.create_sheet(title=sheet_name)
 
         # Headers
-        headers = ["Sokord", "Matchningstyp", "Manadssokningar", "Snitt CPC (SEK)", "Konkurrens"]
+        headers = ["Sökord", "Matchningstyp", "Månadssökningar", "Snitt CPC (SEK)", "Konkurrens"]
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col, value=header)
             cell.font = header_text
@@ -376,8 +406,8 @@ def export_keyword_xlsx(keyword_data: dict, output_path: str) -> str:
             ws.column_dimensions[col_letter].width = min(max_length + 2, 40)
 
     if not groups:
-        ws = wb.create_sheet(title="Inga sokord")
-        ws.cell(row=1, column=1, value="Inga sokordsgrupper tillgangliga")
+        ws = wb.create_sheet(title="Inga sökord")
+        ws.cell(row=1, column=1, value="Inga sökordsgrupper tillgängliga")
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)

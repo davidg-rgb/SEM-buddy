@@ -15,6 +15,7 @@ dependencies = [
     "lxml>=4.9",
     "openpyxl>=3.1",
     "pandas>=2.1",
+    "markdown-pdf>=1.13",
     "pypdf>=3.17",
     "python-dotenv>=1.0",
     "spacy>=3.7",
