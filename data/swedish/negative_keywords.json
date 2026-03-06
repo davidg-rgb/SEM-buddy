@@ -2,26 +2,26 @@
   "jobb": [
     "jobb",
     "lediga jobb",
-    "lediga tjanster",
-    "anstallning",
-    "karriar",
-    "lon",
-    "lonestatistik",
+    "lediga tjänster",
+    "anställning",
+    "karriär",
+    "lön",
+    "lönestatistik",
     "utbildning",
     "kurs",
     "praktik",
     "cv",
-    "arbetsformedlingen"
+    "arbetsförmedlingen"
   ],
   "diy": [
-    "sjalv",
-    "gor det sjalv",
+    "själv",
+    "gör det själv",
     "diy",
     "guide",
     "instruktion",
-    "steg for steg",
+    "steg för steg",
     "tips",
-    "rad"
+    "råd"
   ],
   "free": [
     "gratis",
@@ -41,26 +41,26 @@
   ],
   "review_research": [
     "recension",
-    "omdome",
-    "bast i test",
-    "jamfor",
-    "jamforelse",
+    "omdöme",
+    "bäst i test",
+    "jämför",
+    "jämförelse",
     "test",
     "betyg"
   ],
   "complaints": [
-    "klagomol",
-    "anmalan",
+    "klagomål",
+    "anmälan",
     "konsumentverket",
     "arn",
     "reklamation",
     "bluff"
   ],
   "info_only": [
-    "vad ar",
+    "vad är",
     "hur fungerar",
-    "varfor",
-    "forklaring",
+    "varför",
+    "förklaring",
     "definition",
     "betydelse"
   ],

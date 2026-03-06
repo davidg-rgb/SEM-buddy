@@ -2,54 +2,54 @@
   "bygg_renovering": [
     "byggfirma",
     "renovering",
-    "taklaggare",
-    "malare",
+    "takläggare",
+    "målare",
     "snickare",
     "badrumsrenovering",
-    "koksrenovering",
+    "köksrenovering",
     "fasadrenovering",
     "tillbyggnad",
     "altanbygge",
     "ROT-avdrag",
     "husrenovering"
   ],
-  "tandvard": [
-    "tandlakare",
-    "tandvard",
+  "tandvård": [
+    "tandläkare",
+    "tandvård",
     "tandblekning",
     "tandimplantat",
-    "tandstallning",
-    "akut tandvard",
+    "tandställning",
+    "akut tandvård",
     "tandlagning",
     "tandhygienist",
     "invisalign"
   ],
-  "advokatbyra": [
+  "advokatbyrå": [
     "advokat",
     "jurist",
-    "juridisk radgivning",
-    "familjeratt",
-    "brottmal",
-    "arbetsratt",
-    "affarsratt",
+    "juridisk rådgivning",
+    "familjerätt",
+    "brottmål",
+    "arbetsrätt",
+    "affärsrätt",
     "avtalsjurist",
-    "skadestandskrav"
+    "skadeståndskrav"
   ],
   "redovisning": [
     "redovisning",
-    "bokforing",
+    "bokföring",
     "revisor",
     "deklaration",
-    "skatteradgivning",
-    "arsredovisning",
-    "lonehantering",
+    "skatterådgivning",
+    "årsredovisning",
+    "lönehantering",
     "ekonomikonsult"
   ],
   "ehandel": [
-    "kop online",
+    "köp online",
     "webbshop",
     "handla",
-    "bestall",
+    "beställ",
     "fri frakt",
     "snabb leverans",
     "rea",
@@ -62,27 +62,27 @@
     "middag",
     "boka bord",
     "take away",
-    "hemkorning",
+    "hemkörning",
     "mat"
   ],
-  "halsa_skonhet": [
-    "frisor",
-    "skonhetssalong",
+  "hälsa_skönhet": [
+    "frisör",
+    "skönhetssalong",
     "massage",
-    "hudvard",
+    "hudvård",
     "manikyr",
     "pedikyr",
     "spa",
     "ansiktsbehandling"
   ],
   "vvs": [
-    "rormokare",
+    "rörmokare",
     "VVS",
-    "rorjour",
-    "vattenlacka",
+    "rörjour",
+    "vattenläcka",
     "avlopp",
-    "varmepump",
-    "golvvarme",
+    "värmepump",
+    "golvvärme",
     "badrum VVS"
   ],
   "el": [
@@ -95,13 +95,13 @@
     "laddbox",
     "elfel"
   ],
-  "flytt_stadning": [
+  "flytt_städning": [
     "flyttfirma",
-    "stadning",
-    "hemstadning",
-    "kontorsstadning",
-    "flyttstadning",
-    "forvaring",
+    "städning",
+    "hemstädning",
+    "kontorsstädning",
+    "flyttstädning",
+    "förvaring",
     "magasinering"
   ]
 }

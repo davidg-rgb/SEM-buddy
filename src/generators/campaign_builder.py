@@ -274,24 +274,24 @@ def _generate_extensions(
     sitelinks = [
         Sitelink(
             text="Om Oss",
-            desc1=f"Las mer om {client.business_name}",
-            desc2="Var historia och vart team",
+            desc1=f"Läs mer om {client.business_name}",
+            desc2="Vår historia och vårt team",
             final_url=f"{website_url}/om-oss",
         ),
         Sitelink(
-            text="Vara Tjanster",
-            desc1="Se hela vart utbud",
-            desc2="Professionella losningar",
+            text="Våra Tjänster",
+            desc1="Se hela vårt utbud",
+            desc2="Professionella lösningar",
             final_url=f"{website_url}/tjanster",
         ),
         Sitelink(
             text="Kontakta Oss",
             desc1="Ring eller maila oss",
-            desc2="Snabb aterkomst",
+            desc2="Snabb återkomst",
             final_url=f"{website_url}/kontakt",
         ),
         Sitelink(
-            text="Fa Offert",
+            text="Få Offert",
             desc1="Kostnadsfri prisuppskattning",
             desc2="Svar inom 24 timmar",
             final_url=f"{website_url}/offert",
@@ -302,8 +302,8 @@ def _generate_extensions(
     callout_texts = [
         "Fri Offert",
         "Snabb Service",
-        "Lokalt Foretag",
-        "Nojd Kund-Garanti",
+        "Lokalt Företag",
+        "Nöjd Kund-Garanti",
     ]
 
     # Add ROT-avdrag callout for home service industries
@@ -317,7 +317,7 @@ def _generate_extensions(
     if client.products_services:
         snippets.append(
             StructuredSnippet(
-                header="Tjanster",
+                header="Tjänster",
                 values=client.products_services[:10],
             )
         )

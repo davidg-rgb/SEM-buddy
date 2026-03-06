@@ -85,7 +85,7 @@ def identify_services(pages: list[CrawledPage]) -> list[str]:
 
     for page in pages:
         url_lower = page.url.lower()
-        if any(s in url_lower for s in ["tjanst", "service", "erbjud", "produkt"]):
+        if any(s in url_lower for s in ["tjanst", "tjänst", "service", "erbjud", "produkt"]):
             if page.h1 and page.h1.lower() not in seen:
                 services.append(page.h1)
                 seen.add(page.h1.lower())

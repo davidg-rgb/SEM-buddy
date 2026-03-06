@@ -118,10 +118,10 @@ def _fill_pattern(
         primary_city = client.geographic_targets[0].name
 
     replacements = {
-        "{Foretag}": client.business_name,
-        "{foretag}": client.business_name.lower(),
-        "{Tjanst}": primary_service.capitalize(),
-        "{tjanst}": primary_service.lower(),
+        "{Företag}": client.business_name,
+        "{företag}": client.business_name.lower(),
+        "{Tjänst}": primary_service.capitalize(),
+        "{tjänst}": primary_service.lower(),
         "{Stad}": primary_city,
         "{stad}": primary_city.lower(),
         "{Pris}": "499",
@@ -244,10 +244,10 @@ def generate_descriptions(
 
     # Fallback descriptions if patterns didn't produce enough
     fallbacks = [
-        f"Professionell {ad_group_theme.lower()} till bra priser. Kontakta oss for en kostnadsfri offert.",
-        f"{client.business_name} erbjuder {ad_group_theme.lower()}. Ring oss idag for mer information.",
-        f"Behover du {ad_group_theme.lower()}? Vi hjalper dig snabbt och professionellt.",
-        f"Boka {ad_group_theme.lower()} online. Snabb service och nojd kund-garanti.",
+        f"Professionell {ad_group_theme.lower()} till bra priser. Kontakta oss för en kostnadsfri offert.",
+        f"{client.business_name} erbjuder {ad_group_theme.lower()}. Ring oss idag för mer information.",
+        f"Behöver du {ad_group_theme.lower()}? Vi hjälper dig snabbt och professionellt.",
+        f"Boka {ad_group_theme.lower()} online. Snabb service och nöjd kund-garanti.",
     ]
     for fb in fallbacks:
         if len(descriptions) >= 4:

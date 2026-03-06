@@ -3,15 +3,15 @@
     "Ring oss",
     "Kontakta oss",
     "Boka samtal",
-    "Fa kontakt",
+    "Få kontakt",
     "Skriv till oss"
   ],
   "quote": [
-    "Fa offert",
-    "Begar offert",
+    "Få offert",
+    "Begär offert",
     "Kostnadsfri offert",
     "Fri prisuppskattning",
-    "Fa pris"
+    "Få pris"
   ],
   "book": [
     "Boka nu",
@@ -21,23 +21,23 @@
     "Boka konsultation"
   ],
   "buy": [
-    "Bestall idag",
-    "Kop nu",
+    "Beställ idag",
+    "Köp nu",
     "Handla online",
-    "Lagg i varukorg",
-    "Bestall har"
+    "Lägg i varukorg",
+    "Beställ här"
   ],
   "learn": [
-    "Las mer",
-    "Upptack",
+    "Läs mer",
+    "Upptäck",
     "Se utbud",
     "Utforska",
     "Se alla"
   ],
   "urgency": [
-    "Begransat antal",
+    "Begränsat antal",
     "Erbjudande slutar snart",
-    "Boka innan det ar fullt",
+    "Boka innan det är fullt",
     "Sista chansen"
   ],
   "trust": [
@@ -45,13 +45,13 @@
     "Auktoriserad",
     "Trygg",
     "Garanti",
-    "Nojd kund-garanti"
+    "Nöjd kund-garanti"
   ],
   "value": [
     "Fri frakt",
     "Snabb leverans",
     "Prisgaranti",
-    "Basta pris",
+    "Bästa pris",
     "Spara"
   ],
   "rot_rut": [
