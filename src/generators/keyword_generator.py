@@ -11,6 +11,7 @@ from pathlib import Path
 from src.models.campaign import Keyword
 from src.models.client import ClientProfile
 from src.utils.config import PROJECT_ROOT
+from src.utils.swedish_nlp import split_compound_word, generate_diacritics_variants
 
 logger = logging.getLogger(__name__)
 
@@ -99,16 +100,66 @@ def generate_seed_keywords(
     return result
 
 
+def expand_keyword_variations(keyword: str) -> list[str]:
+    """Generate keyword variations using compound splitting, diacritics, and plural/singular.
+
+    Returns a list of variant strings (not including the original).
+    """
+    variants: set[str] = set()
+    kw_lower = keyword.lower().strip()
+
+    # 1. Compound splits as separate words
+    if " " not in kw_lower and len(kw_lower) > 5:
+        parts = split_compound_word(kw_lower)
+        if len(parts) > 1:
+            variants.add(" ".join(parts))
+
+    # For multi-word keywords, try splitting each word
+    if " " in kw_lower:
+        words = kw_lower.split()
+        for idx, w in enumerate(words):
+            if len(w) > 5:
+                parts = split_compound_word(w)
+                if len(parts) > 1:
+                    new_words = words[:idx] + parts + words[idx + 1:]
+                    variants.add(" ".join(new_words))
+
+    # 2. Diacritics variants (a/å, a/ä, o/ö)
+    diac_variants = generate_diacritics_variants(kw_lower)
+    variants.update(diac_variants)
+
+    # 3. Basic plural/singular forms
+    if kw_lower.endswith("ar"):
+        variants.add(kw_lower[:-2])  # hundar -> hund
+    elif kw_lower.endswith("er"):
+        variants.add(kw_lower[:-2])  # tjänster -> tjänst
+    elif kw_lower.endswith("or"):
+        variants.add(kw_lower[:-2])  # faktorer -> faktor (approx)
+    elif kw_lower.endswith("na") or kw_lower.endswith("en"):
+        variants.add(kw_lower[:-2])  # definite form: bilen -> bil
+    elif not kw_lower.endswith("s"):
+        # Try adding common plural suffixes
+        variants.add(kw_lower + "ar")
+        variants.add(kw_lower + "er")
+
+    variants.discard(kw_lower)
+    return sorted(variants)
+
+
 def expand_keywords_swedish(seeds: list[str]) -> list[str]:
     """Expand seed keywords with Swedish-specific variants.
 
     Includes: compound word variants, diacritics alternatives (a/å, o/ö),
-    common modifiers, and city name combinations.
+    common modifiers, city name combinations, and keyword variations.
     """
     expanded: set[str] = set()
 
     for seed in seeds:
         expanded.add(seed)
+
+        # Add keyword variations (compound splits, diacritics, plural/singular)
+        variations = expand_keyword_variations(seed)
+        expanded.update(variations)
 
         # Add diacritics-stripped variant
         stripped = seed
@@ -128,16 +179,6 @@ def expand_keywords_swedish(seeds: list[str]) -> list[str]:
             for city in SWEDISH_CITIES:
                 expanded.add(f"{seed} {city.lower()}")
                 expanded.add(f"{seed} i {city.lower()}")
-
-        # Compound word splitting/joining (Swedish compound words)
-        # e.g., "badrumsrenovering" -> "badrums renovering"
-        if len(seed) > 10 and " " not in seed:
-            # Try splitting at common Swedish compound boundaries
-            for i in range(4, len(seed) - 3):
-                if seed[i] == "s" and i > 3:
-                    variant = seed[:i + 1] + " " + seed[i + 1:]
-                    expanded.add(variant)
-                    break
 
         # If multi-word, also try joining as compound
         if " " in seed:

@@ -1,7 +1,7 @@
 """Google Ads Editor CSV export -- the highest-value deliverable.
 
-Exports a CampaignPlan into a single CSV file that can be directly imported
-into Google Ads Editor using UTF-8 BOM encoding for Excel compatibility.
+Exports a CampaignPlan into per-entity-type CSV files that can be directly
+imported into Google Ads Editor using UTF-8 BOM encoding for Excel compatibility.
 """
 
 from __future__ import annotations
@@ -19,42 +19,67 @@ from src.models.campaign import (
 
 logger = logging.getLogger(__name__)
 
+_README_CONTENT = """\
+Google Ads Editor Import Order
+==============================
+
+Import the CSV files in numerical order:
+
+1. 01_campaigns.csv        - Campaign settings (budget, bidding, targeting)
+2. 02_ad_groups.csv        - Ad groups within each campaign
+3. 03_keywords.csv         - Keywords with match types and final URLs
+4. 04_responsive_search_ads.csv - RSA ads with headlines and descriptions
+5. 05_negative_keywords.csv - Negative keywords for traffic filtering
+6. 06_sitelinks.csv        - Sitelink extensions per campaign
+7. 07_callouts.csv         - Callout extensions per campaign
+
+Instructions:
+- Open Google Ads Editor
+- Select File > Import > From CSV
+- Import each file in order (campaigns first, then ad groups, etc.)
+- Review changes in the editor before posting
+- All files use UTF-8 BOM encoding for compatibility
+"""
+
 
 def export_campaign_plan(plan: CampaignPlan, output_dir: str) -> str:
-    """Export a complete campaign plan to a single Google Ads Editor CSV file.
+    """Export a complete campaign plan to per-entity-type CSV files.
 
-    Returns the path to the generated CSV file.
+    Returns the path to the output directory containing all files.
     """
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    all_rows: list[dict] = []
+    campaign_names = [c.name for c in plan.campaigns]
 
-    # Build rows in Google Ads Editor order
-    all_rows.extend(_campaign_rows(plan.campaigns))
-    all_rows.extend(_ad_group_rows(plan.campaigns))
-    all_rows.extend(_keyword_rows(plan.campaigns))
-    all_rows.extend(_rsa_rows(plan.campaigns))
-    all_rows.extend(_negative_keyword_rows(plan.campaigns))
-    all_rows.extend(_sitelink_rows(plan.sitelinks))
-    all_rows.extend(_callout_rows(plan.callouts))
+    files = [
+        ("01_campaigns.csv", _campaign_rows(plan.campaigns)),
+        ("02_ad_groups.csv", _ad_group_rows(plan.campaigns)),
+        ("03_keywords.csv", _keyword_rows(plan.campaigns)),
+        ("04_responsive_search_ads.csv", _rsa_rows(plan.campaigns)),
+        ("05_negative_keywords.csv", _negative_keyword_rows(plan.campaigns)),
+        ("06_sitelinks.csv", _sitelink_rows(plan.sitelinks, campaign_names)),
+        ("07_callouts.csv", _callout_rows(plan.callouts, campaign_names)),
+    ]
 
-    if not all_rows:
-        logger.warning("No data to export")
-        return ""
+    total_rows = 0
+    for filename, rows in files:
+        if not rows:
+            continue
+        df = pd.DataFrame(rows)
+        df = df.fillna("")
+        csv_path = output_path / filename
+        df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+        total_rows += len(df)
+        logger.info("Exported %s (%d rows)", filename, len(df))
 
-    # Use pandas to create a unified DataFrame with all columns
-    df = pd.DataFrame(all_rows)
+    # Write README
+    readme_path = output_path / "README_import_order.txt"
+    readme_path.write_text(_README_CONTENT, encoding="utf-8")
+    logger.info("Wrote %s", readme_path)
 
-    # Fill NaN with empty string for clean CSV output
-    df = df.fillna("")
-
-    # Export with UTF-8 BOM for Excel compatibility
-    csv_path = output_path / "google_ads_import.csv"
-    df.to_csv(csv_path, index=False, encoding="utf-8-sig")
-
-    logger.info("Exported campaign plan to %s (%d rows)", csv_path, len(df))
-    return str(csv_path)
+    logger.info("Exported campaign plan to %s (%d total rows)", output_path, total_rows)
+    return str(output_path)
 
 
 def _campaign_rows(campaigns: list[Campaign]) -> list[dict]:
@@ -65,7 +90,6 @@ def _campaign_rows(campaigns: list[Campaign]) -> list[dict]:
         languages = "; ".join(campaign.language_codes)
 
         rows.append({
-            "Row Type": "Campaign",
             "Campaign": campaign.name,
             "Campaign Type": campaign.campaign_type,
             "Campaign Status": campaign.status,
@@ -85,7 +109,6 @@ def _ad_group_rows(campaigns: list[Campaign]) -> list[dict]:
     for campaign in campaigns:
         for ag in campaign.ad_groups:
             rows.append({
-                "Row Type": "Ad Group",
                 "Campaign": campaign.name,
                 "Ad Group": ag.name,
                 "Status": "Enabled",
@@ -115,7 +138,6 @@ def _keyword_rows(campaigns: list[Campaign]) -> list[dict]:
                     "EXACT": "Exact",
                 }
                 rows.append({
-                    "Row Type": "Keyword",
                     "Campaign": campaign.name,
                     "Ad Group": ag.name,
                     "Keyword": kw.text,
@@ -133,7 +155,6 @@ def _rsa_rows(campaigns: list[Campaign]) -> list[dict]:
         for ag in campaign.ad_groups:
             for ad in ag.ads:
                 row: dict = {
-                    "Row Type": "Ad",
                     "Campaign": campaign.name,
                     "Ad Group": ag.name,
                     "Ad type": "Responsive search ad",
@@ -166,30 +187,32 @@ def _rsa_rows(campaigns: list[Campaign]) -> list[dict]:
     return rows
 
 
-def _sitelink_rows(sitelinks: list[Sitelink]) -> list[dict]:
-    """Generate sitelink extension rows."""
+def _sitelink_rows(sitelinks: list[Sitelink], campaign_names: list[str]) -> list[dict]:
+    """Generate sitelink extension rows, one per sitelink per campaign."""
     rows = []
-    for sl in sitelinks:
-        rows.append({
-            "Row Type": "Sitelink",
-            "Sitelink text": sl.text,
-            "Description 1": sl.desc1,
-            "Description 2": sl.desc2,
-            "Final URL": str(sl.final_url),
-            "Status": "Enabled",
-        })
+    for campaign_name in campaign_names:
+        for sl in sitelinks:
+            rows.append({
+                "Campaign": campaign_name,
+                "Sitelink text": sl.text,
+                "Description 1": sl.desc1,
+                "Description 2": sl.desc2,
+                "Final URL": str(sl.final_url),
+                "Status": "Enabled",
+            })
     return rows
 
 
-def _callout_rows(callouts: list[Callout]) -> list[dict]:
-    """Generate callout extension rows."""
+def _callout_rows(callouts: list[Callout], campaign_names: list[str]) -> list[dict]:
+    """Generate callout extension rows, one per callout per campaign."""
     rows = []
-    for co in callouts:
-        rows.append({
-            "Row Type": "Callout",
-            "Callout text": co.text,
-            "Status": "Enabled",
-        })
+    for campaign_name in campaign_names:
+        for co in callouts:
+            rows.append({
+                "Campaign": campaign_name,
+                "Callout text": co.text,
+                "Status": "Enabled",
+            })
     return rows
 
 
@@ -200,7 +223,6 @@ def _negative_keyword_rows(campaigns: list[Campaign]) -> list[dict]:
         for ag in campaign.ad_groups:
             for neg_kw in ag.negative_keywords:
                 rows.append({
-                    "Row Type": "Negative Keyword",
                     "Campaign": campaign.name,
                     "Keyword": neg_kw,
                     "Criterion Type": "Broad",
