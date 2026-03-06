@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Industry Keywords",
+  "description": "Seed keywords organized by industry for Swedish SEM campaigns.",
+  "type": "object",
+  "minProperties": 5,
+  "additionalProperties": {
+    "type": "array",
+    "items": {
+      "type": "string",
+      "minLength": 1
+    },
+    "minItems": 1
+  }
+}
