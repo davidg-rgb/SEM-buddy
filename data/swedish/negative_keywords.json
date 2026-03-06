@@ -1,0 +1,74 @@
+{
+  "jobb": [
+    "jobb",
+    "lediga jobb",
+    "lediga tjanster",
+    "anstallning",
+    "karriar",
+    "lon",
+    "lonestatistik",
+    "utbildning",
+    "kurs",
+    "praktik",
+    "cv",
+    "arbetsformedlingen"
+  ],
+  "diy": [
+    "sjalv",
+    "gor det sjalv",
+    "diy",
+    "guide",
+    "instruktion",
+    "steg for steg",
+    "tips",
+    "rad"
+  ],
+  "free": [
+    "gratis",
+    "fri",
+    "kostnadsfri nedladdning",
+    "torrent",
+    "ladda ner"
+  ],
+  "academic": [
+    "uppsats",
+    "rapport",
+    "historia",
+    "wikipedia",
+    "studie",
+    "forskning",
+    "akademisk"
+  ],
+  "review_research": [
+    "recension",
+    "omdome",
+    "bast i test",
+    "jamfor",
+    "jamforelse",
+    "test",
+    "betyg"
+  ],
+  "complaints": [
+    "klagomol",
+    "anmalan",
+    "konsumentverket",
+    "arn",
+    "reklamation",
+    "bluff"
+  ],
+  "info_only": [
+    "vad ar",
+    "hur fungerar",
+    "varfor",
+    "forklaring",
+    "definition",
+    "betydelse"
+  ],
+  "other_languages": [
+    "english",
+    "deutsch",
+    "how to",
+    "what is",
+    "cheap"
+  ]
+}

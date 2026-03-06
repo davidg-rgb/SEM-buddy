@@ -1,0 +1,107 @@
+{
+  "bygg_renovering": [
+    "byggfirma",
+    "renovering",
+    "taklaggare",
+    "malare",
+    "snickare",
+    "badrumsrenovering",
+    "koksrenovering",
+    "fasadrenovering",
+    "tillbyggnad",
+    "altanbygge",
+    "ROT-avdrag",
+    "husrenovering"
+  ],
+  "tandvard": [
+    "tandlakare",
+    "tandvard",
+    "tandblekning",
+    "tandimplantat",
+    "tandstallning",
+    "akut tandvard",
+    "tandlagning",
+    "tandhygienist",
+    "invisalign"
+  ],
+  "advokatbyra": [
+    "advokat",
+    "jurist",
+    "juridisk radgivning",
+    "familjeratt",
+    "brottmal",
+    "arbetsratt",
+    "affarsratt",
+    "avtalsjurist",
+    "skadestandskrav"
+  ],
+  "redovisning": [
+    "redovisning",
+    "bokforing",
+    "revisor",
+    "deklaration",
+    "skatteradgivning",
+    "arsredovisning",
+    "lonehantering",
+    "ekonomikonsult"
+  ],
+  "ehandel": [
+    "kop online",
+    "webbshop",
+    "handla",
+    "bestall",
+    "fri frakt",
+    "snabb leverans",
+    "rea",
+    "kampanj"
+  ],
+  "restaurang": [
+    "restaurang",
+    "catering",
+    "lunch",
+    "middag",
+    "boka bord",
+    "take away",
+    "hemkorning",
+    "mat"
+  ],
+  "halsa_skonhet": [
+    "frisor",
+    "skonhetssalong",
+    "massage",
+    "hudvard",
+    "manikyr",
+    "pedikyr",
+    "spa",
+    "ansiktsbehandling"
+  ],
+  "vvs": [
+    "rormokare",
+    "VVS",
+    "rorjour",
+    "vattenlacka",
+    "avlopp",
+    "varmepump",
+    "golvvarme",
+    "badrum VVS"
+  ],
+  "el": [
+    "elektriker",
+    "elinstallation",
+    "eljour",
+    "belysning",
+    "elcentral",
+    "solpaneler",
+    "laddbox",
+    "elfel"
+  ],
+  "flytt_stadning": [
+    "flyttfirma",
+    "stadning",
+    "hemstadning",
+    "kontorsstadning",
+    "flyttstadning",
+    "forvaring",
+    "magasinering"
+  ]
+}

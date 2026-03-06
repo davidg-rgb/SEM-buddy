@@ -1,0 +1,10 @@
+pydantic>=2.5
+playwright>=1.40
+httpx>=0.25
+beautifulsoup4>=4.12
+lxml>=4.9
+openpyxl>=3.1
+pandas>=2.1
+pypdf>=3.17
+python-dotenv>=1.0
+spacy>=3.7

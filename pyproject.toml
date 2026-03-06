@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sem-master"
+version = "0.1.0"
+description = "Automated Google Ads campaign creation for Swedish/Nordic clients"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.5",
+    "playwright>=1.40",
+    "httpx>=0.25",
+    "beautifulsoup4>=4.12",
+    "lxml>=4.9",
+    "openpyxl>=3.1",
+    "pandas>=2.1",
+    "pypdf>=3.17",
+    "python-dotenv>=1.0",
+    "spacy>=3.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

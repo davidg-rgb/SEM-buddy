@@ -1,0 +1,34 @@
+{
+  "headline_patterns": [
+    {"pattern": "{Foretag} - {Stad}", "type": "brand", "max_chars": 30},
+    {"pattern": "Professionell {Tjanst}", "type": "service", "max_chars": 30},
+    {"pattern": "{Tjanst} i {Stad}", "type": "location", "max_chars": 30},
+    {"pattern": "Fa Offert Idag", "type": "cta", "max_chars": 30},
+    {"pattern": "Fran {Pris} kr", "type": "price", "max_chars": 30},
+    {"pattern": "Over {Antal} Nojda Kunder", "type": "usp", "max_chars": 30},
+    {"pattern": "{Antal} Ars Erfarenhet", "type": "usp", "max_chars": 30},
+    {"pattern": "Boka {Tjanst} Online", "type": "cta", "max_chars": 30},
+    {"pattern": "Certifierad {Tjanst}", "type": "usp", "max_chars": 30},
+    {"pattern": "Snabb & Palitlig {Tjanst}", "type": "usp", "max_chars": 30},
+    {"pattern": "Ring Oss - {Telefon}", "type": "cta", "max_chars": 30},
+    {"pattern": "Fri Offert & Radgivning", "type": "cta", "max_chars": 30},
+    {"pattern": "Basta {Tjanst} i {Stad}", "type": "location", "max_chars": 30},
+    {"pattern": "{Tjanst} - Snabb Service", "type": "service", "max_chars": 30},
+    {"pattern": "ROT-avdrag {Tjanst}", "type": "price", "max_chars": 30}
+  ],
+  "description_patterns": [
+    {"pattern": "Vi erbjuder {tjanst} i {stad} med {antal} ars erfarenhet. {CTA}.", "type": "general", "max_chars": 90},
+    {"pattern": "Professionell {tjanst} till konkurrenskraftiga priser. Fri offert. Ring {telefon}.", "type": "price_focused", "max_chars": 90},
+    {"pattern": "{Foretag} - din lokala expert pa {tjanst}. Kontakta oss for en kostnadsfri konsultation.", "type": "local", "max_chars": 90},
+    {"pattern": "Behover du {tjanst}? Vi hjalper dig snabbt och professionellt. Boka tid online idag.", "type": "urgency", "max_chars": 90},
+    {"pattern": "Certifierad {tjanst} med garanti. Over {antal} nojda kunder i {stad}. {CTA}.", "type": "trust", "max_chars": 90},
+    {"pattern": "Fa {tjanst} utford av experter. Prisgaranti och fri offert. Ring {telefon} idag.", "type": "value", "max_chars": 90},
+    {"pattern": "{Tjanst} med ROT-avdrag. Spara upp till 50 000 kr. Begar offert nu.", "type": "rot", "max_chars": 90}
+  ],
+  "pinning_strategy": {
+    "headline_1": "brand - Pin company name or primary brand term",
+    "headline_2": "service - Pin main service/keyword for relevance",
+    "headline_3": "cta - Pin call-to-action for conversion",
+    "notes": "Leave headlines 4-15 unpinned to allow Google optimization. Always pin at least H1 and H3."
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "contact": [
+    "Ring oss",
+    "Kontakta oss",
+    "Boka samtal",
+    "Fa kontakt",
+    "Skriv till oss"
+  ],
+  "quote": [
+    "Fa offert",
+    "Begar offert",
+    "Kostnadsfri offert",
+    "Fri prisuppskattning",
+    "Fa pris"
+  ],
+  "book": [
+    "Boka nu",
+    "Boka tid",
+    "Boka online",
+    "Reservera",
+    "Boka konsultation"
+  ],
+  "buy": [
+    "Bestall idag",
+    "Kop nu",
+    "Handla online",
+    "Lagg i varukorg",
+    "Bestall har"
+  ],
+  "learn": [
+    "Las mer",
+    "Upptack",
+    "Se utbud",
+    "Utforska",
+    "Se alla"
+  ],
+  "urgency": [
+    "Begransat antal",
+    "Erbjudande slutar snart",
+    "Boka innan det ar fullt",
+    "Sista chansen"
+  ],
+  "trust": [
+    "Certifierad",
+    "Auktoriserad",
+    "Trygg",
+    "Garanti",
+    "Nojd kund-garanti"
+  ],
+  "value": [
+    "Fri frakt",
+    "Snabb leverans",
+    "Prisgaranti",
+    "Basta pris",
+    "Spara"
+  ],
+  "rot_rut": [
+    "ROT-avdrag",
+    "RUT-avdrag",
+    "Skattesubvention",
+    "Halva priset med ROT"
+  ]
+}
