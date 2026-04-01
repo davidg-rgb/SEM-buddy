@@ -47,9 +47,33 @@ def create_app() -> typer.Typer:
     from src.cli.accounts_commands import accounts_app
     from src.cli.auth_commands import auth_app
 
+    # Stage command groups (pipeline stages 1-8)
+    from src.cli.intake_commands import intake_app
+    from src.cli.research_commands import research_app
+    from src.cli.competitors_commands import competitors_app
+    from src.cli.keywords_commands import keywords_app
+    from src.cli.campaign_commands import campaign_app
+    from src.cli.validate_commands import validate_app
+    from src.cli.export_commands import export_app
+    from src.cli.report_commands import report_app
+
+    # Pipeline orchestrator
+    from src.cli.pipeline_commands import pipeline_app
+
     app.add_typer(config_app, name="config", help="View and modify global configuration.")
     app.add_typer(accounts_app, name="accounts", help="Manage client accounts.")
     app.add_typer(auth_app, name="auth", help="OAuth authentication and token management.")
+
+    app.add_typer(intake_app, name="intake", help="Client onboarding — collect business information.")
+    app.add_typer(research_app, name="research", help="Scrape and analyze client digital presence.")
+    app.add_typer(competitors_app, name="competitors", help="Analyze competitor ad strategies.")
+    app.add_typer(keywords_app, name="keywords", help="Generate and group keyword research.")
+    app.add_typer(campaign_app, name="campaign", help="Build campaign structure with ad copy.")
+    app.add_typer(validate_app, name="validate", help="Run pre-export validation checks.")
+    app.add_typer(export_app, name="export", help="Export campaign to Google Ads Editor CSV.")
+    app.add_typer(report_app, name="report", help="Generate strategy report.")
+
+    app.add_typer(pipeline_app, name="pipeline", help="Run full or partial pipeline.")
 
     return app
 
