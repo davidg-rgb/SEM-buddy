@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: OAuth CLI Rework
 status: executing
-stopped_at: Completed 11-03-PLAN.md
-last_updated: "2026-04-01T14:54:32.342Z"
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-04-01T14:56:10.741Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 15
-  completed_plans: 13
+  completed_plans: 14
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 ## Current Position
 
 Phase: 11 (Testing & Polish) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-01
 
@@ -60,6 +60,7 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 | Phase 10 P01 | 3 | 2 tasks | 5 files |
 | Phase 10-templates-audit P02 | 12 | 2 tasks | 5 files |
 | Phase 11-testing-polish P03 | 107s | 2 tasks | 3 files |
+| Phase 11-testing-polish P01 | 3 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,8 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 - [Phase 10-templates-audit]: Case-insensitive campaign name matching in comparator — Google Ads names may differ in capitalisation from generated plan
 - [Phase 11-testing-polish]: CLAUDE.md reflects v2.0 OAuth CLI architecture: all 14 command groups, OAuth flow, dry-run mode documented
 - [Phase 11-testing-polish]: .env.example removes direct OAuth credential fields; sem auth login + OS keyring manages them
+- [Phase 11-testing-polish]: Inline import inside test body after monkeypatching module attributes ensures patched constants are used when function runs
+- [Phase 11-testing-polish]: Dict-backed fake keyring avoids OS keyring dependency, fully deterministic, no side-effects between tests
 
 ### Pending Todos
 
@@ -113,6 +116,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T14:54:32.337Z
-Stopped at: Completed 11-03-PLAN.md
+Last session: 2026-04-01T14:56:10.736Z
+Stopped at: Completed 11-01-PLAN.md
 Resume file: None
