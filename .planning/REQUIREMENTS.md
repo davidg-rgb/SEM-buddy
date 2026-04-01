@@ -18,11 +18,11 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 
 ### Account Management
 
-- [ ] **ACCT-01**: Operator can register a new client with Google Ads Customer ID, industry, and budget
-- [ ] **ACCT-02**: Operator can list all managed client accounts with pipeline status
-- [ ] **ACCT-03**: Operator can switch active client context (used as default for all commands)
-- [ ] **ACCT-04**: Operator can view detailed info for any client account
-- [ ] **ACCT-05**: Operator can remove/archive a client account
+- [x] **ACCT-01**: Operator can register a new client with Google Ads Customer ID, industry, and budget
+- [x] **ACCT-02**: Operator can list all managed client accounts with pipeline status
+- [x] **ACCT-03**: Operator can switch active client context (used as default for all commands)
+- [x] **ACCT-04**: Operator can view detailed info for any client account
+- [x] **ACCT-05**: Operator can remove/archive a client account
 - [ ] **ACCT-06**: New client registration verifies account accessibility under MCC via API
 
 ### CLI Framework
@@ -37,7 +37,7 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 
 - [x] **CFG-01**: Global config stored at `~/.sem-master/config.yaml` with sensible defaults
 - [ ] **CFG-02**: Operator can view, set, and edit config values via `sem config` commands
-- [ ] **CFG-03**: Per-client config stored as `account.yaml` in client directory
+- [x] **CFG-03**: Per-client config stored as `account.yaml` in client directory
 - [x] **CFG-04**: Config supports dot-notation access (e.g., `sem config set defaults.industry tandvård`)
 
 ### Pipeline
@@ -113,13 +113,13 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 |-------------|-------|--------|
 | CFG-01 | Phase 6 - Config & Account Management | Complete |
 | CFG-02 | Phase 6 - Config & Account Management | Pending |
-| CFG-03 | Phase 6 - Config & Account Management | Pending |
+| CFG-03 | Phase 6 - Config & Account Management | Complete |
 | CFG-04 | Phase 6 - Config & Account Management | Complete |
-| ACCT-01 | Phase 6 - Config & Account Management | Pending |
-| ACCT-02 | Phase 6 - Config & Account Management | Pending |
-| ACCT-03 | Phase 6 - Config & Account Management | Pending |
-| ACCT-04 | Phase 6 - Config & Account Management | Pending |
-| ACCT-05 | Phase 6 - Config & Account Management | Pending |
+| ACCT-01 | Phase 6 - Config & Account Management | Complete |
+| ACCT-02 | Phase 6 - Config & Account Management | Complete |
+| ACCT-03 | Phase 6 - Config & Account Management | Complete |
+| ACCT-04 | Phase 6 - Config & Account Management | Complete |
+| ACCT-05 | Phase 6 - Config & Account Management | Complete |
 | CLI-01 | Phase 6 - Config & Account Management | Complete |
 | CLI-04 | Phase 6 - Config & Account Management | Complete |
 | CLI-05 | Phase 6 - Config & Account Management | Pending |
