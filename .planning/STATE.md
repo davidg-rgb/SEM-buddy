@@ -2,45 +2,49 @@
 
 ## Project Reference
 
-**Core value:** Automate Google Ads campaign creation for Swedish/Nordic clients
-**Current milestone:** v0.2.0 - Polish & Verify
+**Core value:** Automate the entire Google Ads campaign creation pipeline for a solo SEM consultant
+**Current milestone:** v2.0 - OAuth CLI Rework
 
 ## Current Position
 
-Phase: 1 - Git Baseline
-Plan: Not yet planned
-Status: Roadmap created, awaiting phase planning
-Progress: [..........] 0/5 phases
-Last activity: 2026-03-06 -- Roadmap v0.2.0 created
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-01 — Milestone v2.0 started
 
 ## Performance Metrics
 
-- Phases completed: 0/5
-- Requirements completed: 0/14
-- Tests passing: N/A (no test suite yet)
+- Phases completed: 0/6
+- Requirements completed: 0/TBD
+- Tests passing: 37/37
 
 ## Accumulated Context
 
 - Review model uses `review_date` field (not `date`) to avoid shadowing
-- CSV export uses UTF-8 BOM for Excel compatibility
-- Swedish data files currently use ASCII approximations (sjalv not själv)
-- Compound word splitting is basic - "badrumsrenovering" returns unsplit
-- No git repo initialized yet
-- All Python imports verified working
-- Phases 3 and 4 can run in parallel after Phase 2
+- CSV export produces 7 per-entity-type files (UTF-8 BOM)
+- Swedish data files use proper diacritics (å, ä, ö)
+- Compound splitter uses simplemma dictionary-based approach
+- pyenchant Swedish dict not available on Windows; simplemma handles it
+- PDF generation via markdown-pdf library
+- industry_keywords.json keys now use Swedish chars (tandvård, advokatbyrå, etc.)
+- ARCHITECTURE.md contains full v2.0 blueprint with function signatures and verification checklist
+- spacy listed in deps but unused — to be removed in v2.0
+- Google Ads API client is currently a stub — real implementation in v2.0
 
 ## Decisions
 
-- Phase numbering starts at 1 (first GSD milestone)
-- Diacritics before NLP/exports (correct text is prerequisite)
-- CSV and NLP grouped in Phase 3 (parallelizable within phase)
-- PDF separate phase (independent of CSV work)
-- Tests last (validate everything)
+- Removed fabricated Row Type column from CSV export
+- Extensions (sitelinks/callouts) applied to ALL campaigns during export
+- Swedish section headers in reports (Sammanfattning, Kampanjstruktur, etc.)
+- simplemma for compound splitting (pyenchant optional on Windows)
+- markdown-pdf for PDF generation (AGPL license, acceptable for tool use)
 
 ## Blockers
 
 None
 
-## Session Continuity
+## Next Steps
 
-Next action: `/gsd:plan-phase 1` to plan Git Baseline phase
+- Define v2.0 requirements
+- Create roadmap from ARCHITECTURE.md phases
+- Begin Phase 6: Config & Account Management
