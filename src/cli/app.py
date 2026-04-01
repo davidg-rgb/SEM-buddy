@@ -42,8 +42,12 @@ def create_app() -> typer.Typer:
         """SEM Master — automated Google Ads campaigns for Swedish clients."""
         pass
 
-    # Command groups for accounts, config, auth, etc. will be registered
-    # by subsequent plans (06-02, 06-03) via app.add_typer()
+    # Lazy imports inside create_app to avoid circular imports and keep startup fast
+    from src.cli.config_commands import config_app
+    from src.cli.accounts_commands import accounts_app
+
+    app.add_typer(config_app, name="config", help="View and modify global configuration.")
+    app.add_typer(accounts_app, name="accounts", help="Manage client accounts.")
 
     return app
 
