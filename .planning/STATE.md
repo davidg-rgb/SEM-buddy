@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: OAuth CLI Rework
-status: verifying
-stopped_at: Completed 08-02-PLAN.md
-last_updated: "2026-04-01T14:07:29.941Z"
+status: executing
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-04-01T14:18:35.827Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 10
+  completed_plans: 9
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** Automate the entire Google Ads campaign creation pipeline for a solo SEM consultant
-**Current focus:** Phase 08 — Google Ads API Client Rewrite
+**Current focus:** Phase 09 — CLI Pipeline Commands
 
 ## Current Position
 
-Phase: 9
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 09 (CLI Pipeline Commands) — EXECUTING
+Plan: 3 of 3
+Status: Ready to execute
 Last activity: 2026-04-01
 
 Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.0 phases)
@@ -54,6 +54,8 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 | Phase 07 P02 | 4 | 2 tasks | 5 files |
 | Phase 08 P01 | 125 | 2 tasks | 3 files |
 | Phase 08 P02 | 5 | 1 tasks | 3 files |
+| Phase 09 P02 | 3 | 2 tasks | 4 files |
+| Phase 09 P01 | 3 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -81,6 +83,8 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 - [Phase 08]: AuthError from Phase 7 propagates unchanged from GoogleAdsService.__init__ -- callers handle auth state
 - [Phase 08-02]: DryRunGoogleAdsService skips super().__init__() entirely — no auth call — callers use factory function to select real vs dry-run
 - [Phase 08-02]: get_ads_service factory function pattern: dry_run=True returns DryRunGoogleAdsService, dry_run=False returns GoogleAdsService
+- [Phase 09]: importlib.util used to load validate_campaign.py — avoids sys.path mutation while keeping scripts/ at project root
+- [Phase 09]: DRY-04: DRY RUN banner prepended to markdown string then passed to generate_pdf_report directly — ensures banner in PDF without regenerating markdown
 
 ### Pending Todos
 
@@ -92,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T14:04:22.146Z
-Stopped at: Completed 08-02-PLAN.md
+Last session: 2026-04-01T14:18:26.162Z
+Stopped at: Completed 09-02-PLAN.md
 Resume file: None

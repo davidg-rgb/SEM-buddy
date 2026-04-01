@@ -118,8 +118,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 09-01-PLAN.md — Stage helpers + data-gathering commands (intake, research, competitors, keywords)
-- [ ] 09-02-PLAN.md — Output-generation commands (campaign, validate, export, report) with DRY RUN warning
+- [x] 09-01-PLAN.md — Stage helpers + data-gathering commands (intake, research, competitors, keywords)
+- [x] 09-02-PLAN.md — Output-generation commands (campaign, validate, export, report) with DRY RUN warning
 - [ ] 09-03-PLAN.md — Pipeline orchestrator (run/status) and wiring all commands into app.py
 
 ### Phase 10: Templates & Audit
