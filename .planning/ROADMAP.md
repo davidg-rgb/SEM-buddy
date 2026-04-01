@@ -99,7 +99,11 @@ Plans:
   3. API errors surface as typed exceptions with actionable hints rather than raw SDK stack traces
   4. `--dry-run` flag is accepted on pipeline commands and routes all API calls to `DryRunGoogleAdsService`
   5. `DryRunGoogleAdsService` returns realistic synthetic data for every API method, with no credentials required
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Error hierarchy and GoogleAdsService with official SDK (7 async methods)
+- [ ] 08-02-PLAN.md — DryRunGoogleAdsService with synthetic data and factory function
 
 ### Phase 9: CLI Pipeline Commands
 **Goal**: Every pipeline stage is callable as an individual `sem <stage> <client>` command, the full pipeline runs end-to-end, and dry-run completes without API credentials.
@@ -150,11 +154,11 @@ Plans:
 | 4. PDF Report | v0.2.0 | 1/1 | Complete | 2026-03-06 |
 | 5. Test Suite & Validation | v0.2.0 | 1/1 | Complete | 2026-03-06 |
 | 6. Config & Account Management | v2.0 | 3/3 | Complete   | 2026-04-01 |
-| 7. OAuth & Token Management | v2.0 | 0/2 | Planned | - |
-| 8. Google Ads API Client Rewrite | v2.0 | 0/TBD | Not started | - |
+| 7. OAuth & Token Management | v2.0 | 2/2 | Complete | 2026-04-01 |
+| 8. Google Ads API Client Rewrite | v2.0 | 0/2 | Planned | - |
 | 9. CLI Pipeline Commands | v2.0 | 0/TBD | Not started | - |
 | 10. Templates & Audit | v2.0 | 0/TBD | Not started | - |
 | 11. Testing & Polish | v2.0 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-04-01 — Phase 7 planned (2 plans, 2 waves)*
+*Last updated: 2026-04-01 — Phase 8 planned (2 plans, 2 waves)*
