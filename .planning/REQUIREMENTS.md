@@ -50,11 +50,11 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 
 ### Google Ads API
 
-- [ ] **GADS-01**: Google Ads API client uses official `google-ads` SDK with OAuth authentication
-- [ ] **GADS-02**: Keyword Planner returns real keyword ideas with volume, CPC, and competition data
-- [ ] **GADS-03**: API client can fetch live campaign data (campaigns, ad groups, keywords, ads)
-- [ ] **GADS-04**: API client can retrieve account info for verification during client registration
-- [ ] **GADS-05**: API errors are wrapped in clear error types with actionable hints
+- [x] **GADS-01**: Google Ads API client uses official `google-ads` SDK with OAuth authentication
+- [x] **GADS-02**: Keyword Planner returns real keyword ideas with volume, CPC, and competition data
+- [x] **GADS-03**: API client can fetch live campaign data (campaigns, ad groups, keywords, ads)
+- [x] **GADS-04**: API client can retrieve account info for verification during client registration
+- [x] **GADS-05**: API errors are wrapped in clear error types with actionable hints
 
 ### Dry-Run Mode
 
@@ -130,11 +130,11 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 | AUTH-05 | Phase 7 - OAuth & Token Management | Complete |
 | AUTH-06 | Phase 7 - OAuth & Token Management | Complete |
 | ACCT-06 | Phase 7 - OAuth & Token Management | Complete |
-| GADS-01 | Phase 8 - Google Ads API Client | Pending |
-| GADS-02 | Phase 8 - Google Ads API Client | Pending |
-| GADS-03 | Phase 8 - Google Ads API Client | Pending |
-| GADS-04 | Phase 8 - Google Ads API Client | Pending |
-| GADS-05 | Phase 8 - Google Ads API Client | Pending |
+| GADS-01 | Phase 8 - Google Ads API Client | Complete |
+| GADS-02 | Phase 8 - Google Ads API Client | Complete |
+| GADS-03 | Phase 8 - Google Ads API Client | Complete |
+| GADS-04 | Phase 8 - Google Ads API Client | Complete |
+| GADS-05 | Phase 8 - Google Ads API Client | Complete |
 | DRY-01 | Phase 8 - Google Ads API Client | Pending |
 | DRY-02 | Phase 8 - Google Ads API Client | Pending |
 | CLI-02 | Phase 9 - CLI Pipeline Commands | Pending |

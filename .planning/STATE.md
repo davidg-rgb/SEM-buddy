@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: OAuth CLI Rework
-status: verifying
-stopped_at: Completed 07-02-PLAN.md
-last_updated: "2026-04-01T13:51:53.491Z"
+status: executing
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-04-01T13:59:47.285Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 7
+  completed_plans: 6
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** Automate the entire Google Ads campaign creation pipeline for a solo SEM consultant
-**Current focus:** Phase 07 — OAuth & Token Management
+**Current focus:** Phase 08 — Google Ads API Client Rewrite
 
 ## Current Position
 
-Phase: 8
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 08 (Google Ads API Client Rewrite) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
 Last activity: 2026-04-01
 
 Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.0 phases)
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 | Phase 06 P03 | 3 | 2 tasks | 3 files |
 | Phase 07 P01 | 4 | 2 tasks | 5 files |
 | Phase 07 P02 | 4 | 2 tasks | 5 files |
+| Phase 08 P01 | 125 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,9 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 - [Phase 07]: Fernet key stored in keyring primary, ~/.sem-master/credentials/.keyfile fallback with 0o600 permissions
 - [Phase 07-02]: Auth CLI commands use lazy import inside create_app() — consistent with Phase 06 pattern
 - [Phase 07-02]: MCC verification is non-blocking (--verify flag) — account created locally regardless of API result
+- [Phase 08]: GoogleAdsService._search centralises GAQL error wrapping for all campaign data methods
+- [Phase 08]: get_search_volumes delegates to get_keyword_ideas and filters results to avoid duplicate SDK logic
+- [Phase 08]: AuthError from Phase 7 propagates unchanged from GoogleAdsService.__init__ -- callers handle auth state
 
 ### Pending Todos
 
@@ -85,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T13:48:00.003Z
-Stopped at: Completed 07-02-PLAN.md
+Last session: 2026-04-01T13:59:47.281Z
+Stopped at: Completed 08-01-PLAN.md
 Resume file: None

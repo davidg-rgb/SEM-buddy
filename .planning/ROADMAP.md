@@ -102,7 +102,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — Error hierarchy and GoogleAdsService with official SDK (7 async methods)
+- [x] 08-01-PLAN.md — Error hierarchy and GoogleAdsService with official SDK (7 async methods)
 - [ ] 08-02-PLAN.md — DryRunGoogleAdsService with synthetic data and factory function
 
 ### Phase 9: CLI Pipeline Commands
