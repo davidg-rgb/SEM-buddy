@@ -1,50 +1,58 @@
-# State
+# Project State
 
 ## Project Reference
 
+See: .planning/PROJECT.md (updated 2026-04-01)
+
 **Core value:** Automate the entire Google Ads campaign creation pipeline for a solo SEM consultant
-**Current milestone:** v2.0 - OAuth CLI Rework
+**Current focus:** Phase 6 — Config & Account Management
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-04-01 — Milestone v2.0 started
+Phase: 6 of 11 (Config & Account Management)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-04-01 — v2.0 roadmap created
+
+Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.0 phases)
 
 ## Performance Metrics
 
-- Phases completed: 0/6
-- Requirements completed: 0/TBD
-- Tests passing: 37/37
+**Velocity:**
+- Total plans completed (v2.0): 0
+- Average duration: —
+- Total execution time: —
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
+
+*Updated after each plan completion*
 
 ## Accumulated Context
 
-- Review model uses `review_date` field (not `date`) to avoid shadowing
-- CSV export produces 7 per-entity-type files (UTF-8 BOM)
-- Swedish data files use proper diacritics (å, ä, ö)
-- Compound splitter uses simplemma dictionary-based approach
-- pyenchant Swedish dict not available on Windows; simplemma handles it
-- PDF generation via markdown-pdf library
-- industry_keywords.json keys now use Swedish chars (tandvård, advokatbyrå, etc.)
-- ARCHITECTURE.md contains full v2.0 blueprint with function signatures and verification checklist
-- spacy listed in deps but unused — to be removed in v2.0
-- Google Ads API client is currently a stub — real implementation in v2.0
+### Decisions
 
-## Decisions
+- [v0.2.0]: simplemma for compound splitting (pyenchant unavailable on Windows)
+- [v0.2.0]: markdown-pdf for PDF generation (AGPL, acceptable for tool use)
+- [v0.2.0]: review_date field naming (avoids shadowing Python's date type)
+- [v2.0]: Typer for CLI (type-hint-driven, rich integration, auto-help)
+- [v2.0]: google-ads SDK official (native GAQL, MCC traversal, OAuth refresh built-in)
+- [v2.0]: keyring + Fernet fallback (OS-native storage with portable fallback)
+- [v2.0]: YAML for config (comments, nested structures, readable)
 
-- Removed fabricated Row Type column from CSV export
-- Extensions (sitelinks/callouts) applied to ALL campaigns during export
-- Swedish section headers in reports (Sammanfattning, Kampanjstruktur, etc.)
-- simplemma for compound splitting (pyenchant optional on Windows)
-- markdown-pdf for PDF generation (AGPL license, acceptable for tool use)
+### Pending Todos
 
-## Blockers
+None yet.
 
-None
+### Blockers/Concerns
 
-## Next Steps
+- Google Ads developer token (Basic access) requires Google approval — may delay live API testing in Phase 8
 
-- Define v2.0 requirements
-- Create roadmap from ARCHITECTURE.md phases
-- Begin Phase 6: Config & Account Management
+## Session Continuity
+
+Last session: 2026-04-01
+Stopped at: Roadmap written for v2.0 (Phases 6-11). Requirements and traceability confirmed 45/45 mapped.
+Resume file: None
