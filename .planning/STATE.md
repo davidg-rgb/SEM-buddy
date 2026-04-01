@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: OAuth CLI Rework
-status: verifying
-stopped_at: Completed 09-03-PLAN.md
-last_updated: "2026-04-01T14:27:20.693Z"
+status: executing
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-04-01T14:37:01.017Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
+  total_plans: 12
+  completed_plans: 11
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** Automate the entire Google Ads campaign creation pipeline for a solo SEM consultant
-**Current focus:** Phase 09 — CLI Pipeline Commands
+**Current focus:** Phase 10 — Templates & Audit
 
 ## Current Position
 
-Phase: 10
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 10 (Templates & Audit) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
 Last activity: 2026-04-01
 
 Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.0 phases)
@@ -57,6 +57,7 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 | Phase 09 P02 | 3 | 2 tasks | 4 files |
 | Phase 09 P01 | 3 | 2 tasks | 5 files |
 | Phase 09 P03 | 10 | 2 tasks | 2 files |
+| Phase 10 P01 | 3 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,9 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 - [Phase Phase 09-01]: Competitors non-dry-run structures known_competitors from intake profile; real scraper integration deferred to sem-competitor-ads skill
 - [Phase 09-03]: CliRunner from typer.testing used to invoke each stage app — correct Typer CLI invocation without subprocess overhead
 - [Phase 09-03]: _STAGES_WITHOUT_DRY_RUN set excludes validate from --dry-run flag since validate_commands.py has no such parameter
+- [Phase 10-01]: {Foretag}/{website} as placeholder tokens -- ASCII-safe, avoids accidental collisions in ad copy
+- [Phase 10-01]: geo_targets cleared on save, set from client.geographic_targets on load -- correct targeting per client
+- [Phase 10-01]: Ad copy fully regenerated on apply_template via generate_rsa -- never copies text verbatim from source client
 
 ### Pending Todos
 
@@ -102,6 +106,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T14:22:20.371Z
-Stopped at: Completed 09-03-PLAN.md
+Last session: 2026-04-01T14:37:01.012Z
+Stopped at: Completed 10-01-PLAN.md
 Resume file: None
