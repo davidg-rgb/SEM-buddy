@@ -83,7 +83,11 @@ Plans:
   3. `sem auth status` shows token validity, MCC info, and expiry time
   4. `sem auth logout` clears all stored credentials from all storage backends
   5. Expired tokens are automatically refreshed; `sem accounts add` verifies account accessibility under MCC via the API
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — Auth core: OAuth flow, credential storage (keyring + Fernet), token refresh
+- [ ] 07-02-PLAN.md — Auth CLI: Google Ads client factory, auth commands, setup guide, ACCT-06
 
 ### Phase 8: Google Ads API Client Rewrite
 **Goal**: The Google Ads API client uses the official SDK with live keyword and campaign data, and a dry-run service substitutes realistic synthetic data when no credentials are present.
@@ -146,11 +150,11 @@ Plans:
 | 4. PDF Report | v0.2.0 | 1/1 | Complete | 2026-03-06 |
 | 5. Test Suite & Validation | v0.2.0 | 1/1 | Complete | 2026-03-06 |
 | 6. Config & Account Management | v2.0 | 3/3 | Complete   | 2026-04-01 |
-| 7. OAuth & Token Management | v2.0 | 0/TBD | Not started | - |
+| 7. OAuth & Token Management | v2.0 | 0/2 | Planned | - |
 | 8. Google Ads API Client Rewrite | v2.0 | 0/TBD | Not started | - |
 | 9. CLI Pipeline Commands | v2.0 | 0/TBD | Not started | - |
 | 10. Templates & Audit | v2.0 | 0/TBD | Not started | - |
 | 11. Testing & Polish | v2.0 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-04-01 — Phase 6 planned (3 plans, 3 waves)*
+*Last updated: 2026-04-01 — Phase 7 planned (2 plans, 2 waves)*
