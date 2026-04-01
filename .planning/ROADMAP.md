@@ -136,7 +136,7 @@ Plans:
 
 Plans:
 - [x] 10-01-PLAN.md — Template system: manager, adapter, CLI commands, app.py registration
-- [ ] 10-02-PLAN.md — Audit system: fetcher, comparator, CLI commands, app.py registration (completing CLI-02)
+- [x] 10-02-PLAN.md — Audit system: fetcher, comparator, CLI commands, app.py registration (completing CLI-02)
 
 ### Phase 11: Testing & Polish
 **Goal**: All new modules have unit tests, the end-to-end dry-run pipeline passes, all existing tests continue passing, and project docs reflect the v2.0 architecture.
@@ -165,7 +165,7 @@ Plans:
 | 7. OAuth & Token Management | v2.0 | 2/2 | Complete | 2026-04-01 |
 | 8. Google Ads API Client Rewrite | v2.0 | 0/2 | Planned | - |
 | 9. CLI Pipeline Commands | v2.0 | 3/3 | Complete   | 2026-04-01 |
-| 10. Templates & Audit | v2.0 | 1/2 | In Progress|  |
+| 10. Templates & Audit | v2.0 | 2/2 | Complete   | 2026-04-01 |
 | 11. Testing & Polish | v2.0 | 0/TBD | Not started | - |
 
 ---

@@ -28,7 +28,7 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 ### CLI Framework
 
 - [x] **CLI-01**: `sem` command is installable via `pip install -e .` with pyproject.toml entry point
-- [ ] **CLI-02**: All command groups accessible: auth, accounts, pipeline, intake, research, competitors, keywords, campaign, validate, export, report, audit, templates, config
+- [x] **CLI-02**: All command groups accessible: auth, accounts, pipeline, intake, research, competitors, keywords, campaign, validate, export, report, audit, templates, config
 - [x] **CLI-03**: Every command defaults to active client when no client name provided
 - [x] **CLI-04**: `--help` available on all commands with auto-generated documentation
 - [x] **CLI-05**: Terminal output uses rich formatting (tables, colors, progress indicators)
@@ -65,16 +65,16 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 
 ### Templates
 
-- [ ] **TMPL-01**: Operator can save a client's campaign plan as a reusable template
-- [ ] **TMPL-02**: Operator can list all saved templates with name, description, and date
-- [ ] **TMPL-03**: Operator can load a template and apply it to a different client (adapting copy, keywords, geo targets)
-- [ ] **TMPL-04**: Operator can delete saved templates
+- [x] **TMPL-01**: Operator can save a client's campaign plan as a reusable template
+- [x] **TMPL-02**: Operator can list all saved templates with name, description, and date
+- [x] **TMPL-03**: Operator can load a template and apply it to a different client (adapting copy, keywords, geo targets)
+- [x] **TMPL-04**: Operator can delete saved templates
 
 ### Audit
 
-- [ ] **AUD-01**: Operator can pull live campaign data from Google Ads and compare against generated recommendations
-- [ ] **AUD-02**: Audit shows structured diff: missing/extra campaigns, keyword gaps, ad copy diffs, budget diffs
-- [ ] **AUD-03**: Audit report written to client's audits/ directory
+- [x] **AUD-01**: Operator can pull live campaign data from Google Ads and compare against generated recommendations
+- [x] **AUD-02**: Audit shows structured diff: missing/extra campaigns, keyword gaps, ad copy diffs, budget diffs
+- [x] **AUD-03**: Audit report written to client's audits/ directory
 
 ### Infrastructure
 
@@ -146,13 +146,13 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 | PIPE-05 | Phase 9 - CLI Pipeline Commands | Complete |
 | DRY-03 | Phase 9 - CLI Pipeline Commands | Complete |
 | DRY-04 | Phase 9 - CLI Pipeline Commands | Complete |
-| TMPL-01 | Phase 10 - Templates & Audit | Pending |
-| TMPL-02 | Phase 10 - Templates & Audit | Pending |
-| TMPL-03 | Phase 10 - Templates & Audit | Pending |
-| TMPL-04 | Phase 10 - Templates & Audit | Pending |
-| AUD-01 | Phase 10 - Templates & Audit | Pending |
-| AUD-02 | Phase 10 - Templates & Audit | Pending |
-| AUD-03 | Phase 10 - Templates & Audit | Pending |
+| TMPL-01 | Phase 10 - Templates & Audit | Complete |
+| TMPL-02 | Phase 10 - Templates & Audit | Complete |
+| TMPL-03 | Phase 10 - Templates & Audit | Complete |
+| TMPL-04 | Phase 10 - Templates & Audit | Complete |
+| AUD-01 | Phase 10 - Templates & Audit | Complete |
+| AUD-02 | Phase 10 - Templates & Audit | Complete |
+| AUD-03 | Phase 10 - Templates & Audit | Complete |
 | INF-04 | Phase 11 - Testing & Polish | Pending |
 | INF-05 | Phase 11 - Testing & Polish | Pending |
 | INF-06 | Phase 11 - Testing & Polish | Pending |

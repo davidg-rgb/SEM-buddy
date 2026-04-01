@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: OAuth CLI Rework
-status: executing
-stopped_at: Completed 10-01-PLAN.md
-last_updated: "2026-04-01T14:37:01.017Z"
+status: verifying
+stopped_at: Completed 10-02-PLAN.md
+last_updated: "2026-04-01T14:42:09.458Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 12
-  completed_plans: 11
+  completed_plans: 12
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 
 Phase: 10 (Templates & Audit) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-01
 
 Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.0 phases)
@@ -58,6 +58,7 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 | Phase 09 P01 | 3 | 2 tasks | 5 files |
 | Phase 09 P03 | 10 | 2 tasks | 2 files |
 | Phase 10 P01 | 3 | 2 tasks | 5 files |
+| Phase 10-templates-audit P02 | 12 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,9 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 - [Phase 10-01]: {Foretag}/{website} as placeholder tokens -- ASCII-safe, avoids accidental collisions in ad copy
 - [Phase 10-01]: geo_targets cleared on save, set from client.geographic_targets on load -- correct targeting per client
 - [Phase 10-01]: Ad copy fully regenerated on apply_template via generate_rsa -- never copies text verbatim from source client
+- [Phase 10-templates-audit]: asyncio.run() sync wrapper in fetcher.py — CLI commands are sync but GoogleAdsService methods are async
+- [Phase 10-templates-audit]: Lazy import of audit modules inside audit() callback — consistent with Phase 06 pattern, avoids circular imports
+- [Phase 10-templates-audit]: Case-insensitive campaign name matching in comparator — Google Ads names may differ in capitalisation from generated plan
 
 ### Pending Todos
 
@@ -106,6 +110,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T14:37:01.012Z
-Stopped at: Completed 10-01-PLAN.md
+Last session: 2026-04-01T14:42:09.453Z
+Stopped at: Completed 10-02-PLAN.md
 Resume file: None
