@@ -1,60 +1,169 @@
-# Requirements - v0.2.0 Polish & Verify
+# Requirements: SEM Master v2.0
 
-## Data Quality
+**Defined:** 2026-04-01
+**Core Value:** Automate the entire Google Ads campaign creation pipeline for a solo SEM consultant
 
-- [ ] **DQ-01**: Fix all Swedish diacritics in negative_keywords.json, cta_phrases.json, ad_copy_patterns.json, industry_keywords.json (å, ä, ö instead of ASCII approximations)
-- [ ] **DQ-02**: Fix all Swedish diacritics in report_generator.py hardcoded strings ("för" not "for", "sökord" not "sokord", etc.)
-- [ ] **DQ-03**: Remove broken `_DIACRITICS_MAP` dict (duplicate key bug), fix `generate_diacritics_variants` to correctly generate å/ä/ö variants
-- [ ] **DQ-04**: Implement consistent Swedish section headers in report generator ("Sammanfattning", "Affärsanalys", "Kampanjstruktur", etc.)
+## v2.0 Requirements
 
-## NLP & Keywords
+Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 
-- [ ] **NLP-01**: Replace suffix-based compound splitter with dictionary-based approach using simplemma (greedy decomposition) + pyenchant (Hunspell sv_SE validation)
-- [ ] **NLP-02**: Add keyword variation expansion: compound splits, plural/singular forms, diacritics variants as keyword suggestions
+### Authentication
 
-## Exports
+- [ ] **AUTH-01**: Operator can authenticate with Google Ads API via OAuth 2.0 desktop flow (browser consent + localhost callback)
+- [ ] **AUTH-02**: OAuth tokens are stored securely using OS keyring with Fernet-encrypted file fallback
+- [ ] **AUTH-03**: Expired tokens are automatically refreshed without operator intervention
+- [ ] **AUTH-04**: Operator can view auth status (token validity, MCC info, expiry time)
+- [ ] **AUTH-05**: Operator can logout and clear all stored credentials
+- [ ] **AUTH-06**: Operator can run interactive Google Cloud project setup guide
 
-- [ ] **EXP-01**: Remove fabricated `Row Type` column from all 7 CSV row generator functions in csv_exporter.py
-- [ ] **EXP-02**: Add `Campaign` column to sitelink and callout CSV rows (apply extensions to all campaigns)
-- [ ] **EXP-03**: Refactor CSV export to produce per-entity-type files: 01_campaigns.csv through 07_callouts.csv
-- [ ] **EXP-04**: Add PDF report generation using markdown-pdf library (Markdown -> HTML -> PDF with Swedish char support)
-- [ ] **EXP-05**: Generate README_import_order.txt with numbered import sequence for Google Ads Editor
+### Account Management
 
-## Infrastructure
+- [ ] **ACCT-01**: Operator can register a new client with Google Ads Customer ID, industry, and budget
+- [ ] **ACCT-02**: Operator can list all managed client accounts with pipeline status
+- [ ] **ACCT-03**: Operator can switch active client context (used as default for all commands)
+- [ ] **ACCT-04**: Operator can view detailed info for any client account
+- [ ] **ACCT-05**: Operator can remove/archive a client account
+- [ ] **ACCT-06**: New client registration verifies account accessibility under MCC via API
 
-- [ ] **INF-01**: Initialize git repository with baseline commit of current v0.1.0 state
-- [ ] **INF-02**: Add pytest test suite covering: model validation, Swedish NLP, CSV export schema, data file diacritics, integration smoke test
-- [ ] **INF-03**: Create JSON Schema files for validating structure of Swedish data files
+### CLI Framework
+
+- [ ] **CLI-01**: `sem` command is installable via `pip install -e .` with pyproject.toml entry point
+- [ ] **CLI-02**: All command groups accessible: auth, accounts, pipeline, intake, research, competitors, keywords, campaign, validate, export, report, audit, templates, config
+- [ ] **CLI-03**: Every command defaults to active client when no client name provided
+- [ ] **CLI-04**: `--help` available on all commands with auto-generated documentation
+- [ ] **CLI-05**: Terminal output uses rich formatting (tables, colors, progress indicators)
+
+### Configuration
+
+- [ ] **CFG-01**: Global config stored at `~/.sem-master/config.yaml` with sensible defaults
+- [ ] **CFG-02**: Operator can view, set, and edit config values via `sem config` commands
+- [ ] **CFG-03**: Per-client config stored as `account.yaml` in client directory
+- [ ] **CFG-04**: Config supports dot-notation access (e.g., `sem config set defaults.industry tandvård`)
+
+### Pipeline
+
+- [ ] **PIPE-01**: Each pipeline stage (intake through report) callable as individual `sem <stage> <client>` command
+- [ ] **PIPE-02**: `sem pipeline run <client>` executes all stages in sequence with progress tracking
+- [ ] **PIPE-03**: Pipeline enforces stage prerequisites (can't run keywords before intake)
+- [ ] **PIPE-04**: Per-client workflow_state.json tracks stage completion with timestamps
+- [ ] **PIPE-05**: `sem pipeline run --from <stage> --to <stage>` supports partial pipeline execution
+
+### Google Ads API
+
+- [ ] **GADS-01**: Google Ads API client uses official `google-ads` SDK with OAuth authentication
+- [ ] **GADS-02**: Keyword Planner returns real keyword ideas with volume, CPC, and competition data
+- [ ] **GADS-03**: API client can fetch live campaign data (campaigns, ad groups, keywords, ads)
+- [ ] **GADS-04**: API client can retrieve account info for verification during client registration
+- [ ] **GADS-05**: API errors are wrapped in clear error types with actionable hints
+
+### Dry-Run Mode
+
+- [ ] **DRY-01**: `--dry-run` flag available on all pipeline and stage commands
+- [ ] **DRY-02**: Dry-run substitutes DryRunGoogleAdsService with realistic synthetic data
+- [ ] **DRY-03**: Full pipeline completes end-to-end in dry-run without any API credentials
+- [ ] **DRY-04**: Reports generated in dry-run mode include visible "DRY RUN" warning
+
+### Templates
+
+- [ ] **TMPL-01**: Operator can save a client's campaign plan as a reusable template
+- [ ] **TMPL-02**: Operator can list all saved templates with name, description, and date
+- [ ] **TMPL-03**: Operator can load a template and apply it to a different client (adapting copy, keywords, geo targets)
+- [ ] **TMPL-04**: Operator can delete saved templates
+
+### Audit
+
+- [ ] **AUD-01**: Operator can pull live campaign data from Google Ads and compare against generated recommendations
+- [ ] **AUD-02**: Audit shows structured diff: missing/extra campaigns, keyword gaps, ad copy diffs, budget diffs
+- [ ] **AUD-03**: Audit report written to client's audits/ directory
+
+### Infrastructure
+
+- [ ] **INF-04**: All new modules have unit tests (auth, accounts, CLI, templates, audit)
+- [ ] **INF-05**: End-to-end dry-run pipeline test passes
+- [ ] **INF-06**: All 37 existing tests continue passing
+- [ ] **INF-07**: CLAUDE.md and .env.example updated for v2.0
+- [ ] **INF-08**: Unused dependencies removed (spacy, pyenchant)
+
+## Future Requirements (Deferred)
+
+### Automation
+- **AUTO-01**: Scheduled campaign performance checks
+- **AUTO-02**: Automated bid adjustment recommendations
+- **AUTO-03**: Campaign performance alerting
+
+### Collaboration
+- **COLLAB-01**: Client-facing report portal
+- **COLLAB-02**: Multi-user access with role-based permissions
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Multi-user auth/permissions | Solo operator, unnecessary complexity |
+| Web UI / dashboard | Terminal-first, CLI is the interface |
+| Direct campaign upload to Google Ads | CSV export for Google Ads Editor is the workflow |
+| Database backend | File-based storage sufficient for solo use |
+| CI/CD pipeline | Local development, not enough team overhead to justify |
+| Multi-language ad copy | Swedish-only market focus |
+| Service account auth | Not supported by Google Ads API |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INF-01 | Phase 1 - Git Baseline | Pending |
-| DQ-01 | Phase 2 - Swedish Diacritics | Pending |
-| DQ-02 | Phase 2 - Swedish Diacritics | Pending |
-| DQ-03 | Phase 2 - Swedish Diacritics | Pending |
-| DQ-04 | Phase 2 - Swedish Diacritics | Pending |
-| NLP-01 | Phase 3 - CSV Export & NLP | Pending |
-| NLP-02 | Phase 3 - CSV Export & NLP | Pending |
-| EXP-01 | Phase 3 - CSV Export & NLP | Pending |
-| EXP-02 | Phase 3 - CSV Export & NLP | Pending |
-| EXP-03 | Phase 3 - CSV Export & NLP | Pending |
-| EXP-05 | Phase 3 - CSV Export & NLP | Pending |
-| EXP-04 | Phase 4 - PDF Report | Pending |
-| INF-02 | Phase 5 - Test Suite & Validation | Pending |
-| INF-03 | Phase 5 - Test Suite & Validation | Pending |
+| CFG-01 | Phase 6 - Config & Account Management | Pending |
+| CFG-02 | Phase 6 - Config & Account Management | Pending |
+| CFG-03 | Phase 6 - Config & Account Management | Pending |
+| CFG-04 | Phase 6 - Config & Account Management | Pending |
+| ACCT-01 | Phase 6 - Config & Account Management | Pending |
+| ACCT-02 | Phase 6 - Config & Account Management | Pending |
+| ACCT-03 | Phase 6 - Config & Account Management | Pending |
+| ACCT-04 | Phase 6 - Config & Account Management | Pending |
+| ACCT-05 | Phase 6 - Config & Account Management | Pending |
+| CLI-01 | Phase 6 - Config & Account Management | Pending |
+| CLI-04 | Phase 6 - Config & Account Management | Pending |
+| CLI-05 | Phase 6 - Config & Account Management | Pending |
+| AUTH-01 | Phase 7 - OAuth & Token Management | Pending |
+| AUTH-02 | Phase 7 - OAuth & Token Management | Pending |
+| AUTH-03 | Phase 7 - OAuth & Token Management | Pending |
+| AUTH-04 | Phase 7 - OAuth & Token Management | Pending |
+| AUTH-05 | Phase 7 - OAuth & Token Management | Pending |
+| AUTH-06 | Phase 7 - OAuth & Token Management | Pending |
+| ACCT-06 | Phase 7 - OAuth & Token Management | Pending |
+| GADS-01 | Phase 8 - Google Ads API Client | Pending |
+| GADS-02 | Phase 8 - Google Ads API Client | Pending |
+| GADS-03 | Phase 8 - Google Ads API Client | Pending |
+| GADS-04 | Phase 8 - Google Ads API Client | Pending |
+| GADS-05 | Phase 8 - Google Ads API Client | Pending |
+| DRY-01 | Phase 8 - Google Ads API Client | Pending |
+| DRY-02 | Phase 8 - Google Ads API Client | Pending |
+| CLI-02 | Phase 9 - CLI Pipeline Commands | Pending |
+| CLI-03 | Phase 9 - CLI Pipeline Commands | Pending |
+| PIPE-01 | Phase 9 - CLI Pipeline Commands | Pending |
+| PIPE-02 | Phase 9 - CLI Pipeline Commands | Pending |
+| PIPE-03 | Phase 9 - CLI Pipeline Commands | Pending |
+| PIPE-04 | Phase 9 - CLI Pipeline Commands | Pending |
+| PIPE-05 | Phase 9 - CLI Pipeline Commands | Pending |
+| DRY-03 | Phase 9 - CLI Pipeline Commands | Pending |
+| DRY-04 | Phase 9 - CLI Pipeline Commands | Pending |
+| TMPL-01 | Phase 10 - Templates & Audit | Pending |
+| TMPL-02 | Phase 10 - Templates & Audit | Pending |
+| TMPL-03 | Phase 10 - Templates & Audit | Pending |
+| TMPL-04 | Phase 10 - Templates & Audit | Pending |
+| AUD-01 | Phase 10 - Templates & Audit | Pending |
+| AUD-02 | Phase 10 - Templates & Audit | Pending |
+| AUD-03 | Phase 10 - Templates & Audit | Pending |
+| INF-04 | Phase 11 - Testing & Polish | Pending |
+| INF-05 | Phase 11 - Testing & Polish | Pending |
+| INF-06 | Phase 11 - Testing & Polish | Pending |
+| INF-07 | Phase 11 - Testing & Polish | Pending |
+| INF-08 | Phase 11 - Testing & Polish | Pending |
 
-## Future Requirements (Deferred)
+**Coverage:**
+- v2.0 requirements: 45 total
+- Mapped to phases: 45
+- Unmapped: 0 ✓
 
-- Character count warnings (25-30 char zone) for ad copy generator
-- Advanced misspelling variants beyond diacritics
-- CI/CD pipeline for automated testing
-
-## Out of Scope
-
-- Full NLP pipeline / ML-based compound splitter
-- Direct Google Ads API campaign upload
-- Multi-language support
-- GUI/web interface
-- Database for campaign history
+---
+*Requirements defined: 2026-04-01*
+*Last updated: 2026-04-01 after initial definition*
