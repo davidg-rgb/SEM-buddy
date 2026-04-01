@@ -87,7 +87,7 @@ Plans:
 
 Plans:
 - [x] 07-01-PLAN.md — Auth core: OAuth flow, credential storage (keyring + Fernet), token refresh
-- [ ] 07-02-PLAN.md — Auth CLI: Google Ads client factory, auth commands, setup guide, ACCT-06
+- [x] 07-02-PLAN.md — Auth CLI: Google Ads client factory, auth commands, setup guide, ACCT-06
 
 ### Phase 8: Google Ads API Client Rewrite
 **Goal**: The Google Ads API client uses the official SDK with live keyword and campaign data, and a dry-run service substitutes realistic synthetic data when no credentials are present.

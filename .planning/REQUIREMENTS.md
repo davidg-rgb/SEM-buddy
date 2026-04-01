@@ -12,9 +12,9 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 - [x] **AUTH-01**: Operator can authenticate with Google Ads API via OAuth 2.0 desktop flow (browser consent + localhost callback)
 - [x] **AUTH-02**: OAuth tokens are stored securely using OS keyring with Fernet-encrypted file fallback
 - [x] **AUTH-03**: Expired tokens are automatically refreshed without operator intervention
-- [ ] **AUTH-04**: Operator can view auth status (token validity, MCC info, expiry time)
-- [ ] **AUTH-05**: Operator can logout and clear all stored credentials
-- [ ] **AUTH-06**: Operator can run interactive Google Cloud project setup guide
+- [x] **AUTH-04**: Operator can view auth status (token validity, MCC info, expiry time)
+- [x] **AUTH-05**: Operator can logout and clear all stored credentials
+- [x] **AUTH-06**: Operator can run interactive Google Cloud project setup guide
 
 ### Account Management
 
@@ -23,7 +23,7 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 - [x] **ACCT-03**: Operator can switch active client context (used as default for all commands)
 - [x] **ACCT-04**: Operator can view detailed info for any client account
 - [x] **ACCT-05**: Operator can remove/archive a client account
-- [ ] **ACCT-06**: New client registration verifies account accessibility under MCC via API
+- [x] **ACCT-06**: New client registration verifies account accessibility under MCC via API
 
 ### CLI Framework
 
@@ -126,10 +126,10 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 | AUTH-01 | Phase 7 - OAuth & Token Management | Complete |
 | AUTH-02 | Phase 7 - OAuth & Token Management | Complete |
 | AUTH-03 | Phase 7 - OAuth & Token Management | Complete |
-| AUTH-04 | Phase 7 - OAuth & Token Management | Pending |
-| AUTH-05 | Phase 7 - OAuth & Token Management | Pending |
-| AUTH-06 | Phase 7 - OAuth & Token Management | Pending |
-| ACCT-06 | Phase 7 - OAuth & Token Management | Pending |
+| AUTH-04 | Phase 7 - OAuth & Token Management | Complete |
+| AUTH-05 | Phase 7 - OAuth & Token Management | Complete |
+| AUTH-06 | Phase 7 - OAuth & Token Management | Complete |
+| ACCT-06 | Phase 7 - OAuth & Token Management | Complete |
 | GADS-01 | Phase 8 - Google Ads API Client | Pending |
 | GADS-02 | Phase 8 - Google Ads API Client | Pending |
 | GADS-03 | Phase 8 - Google Ads API Client | Pending |

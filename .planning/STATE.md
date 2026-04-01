@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: OAuth CLI Rework
-status: executing
-stopped_at: Completed 07-01-PLAN.md
-last_updated: "2026-04-01T13:43:28.643Z"
+status: verifying
+stopped_at: Completed 07-02-PLAN.md
+last_updated: "2026-04-01T13:48:00.010Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 
 Phase: 07 (OAuth & Token Management) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-01
 
 Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.0 phases)
@@ -51,6 +51,7 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 | Phase 06 P02 | 110 | 2 tasks | 3 files |
 | Phase 06 P03 | 3 | 2 tasks | 3 files |
 | Phase 07 P01 | 4 | 2 tasks | 5 files |
+| Phase 07 P02 | 4 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,8 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 - [Phase 06-03]: set_cmd function name avoids shadowing Python built-in set type while registering as sem config set command
 - [Phase 07]: Port retry in run_oauth_flow: up to 3 attempts (port+0, port+1, port+2) before raising AuthError
 - [Phase 07]: Fernet key stored in keyring primary, ~/.sem-master/credentials/.keyfile fallback with 0o600 permissions
+- [Phase 07-02]: Auth CLI commands use lazy import inside create_app() — consistent with Phase 06 pattern
+- [Phase 07-02]: MCC verification is non-blocking (--verify flag) — account created locally regardless of API result
 
 ### Pending Todos
 
@@ -82,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T13:43:28.639Z
-Stopped at: Completed 07-01-PLAN.md
+Last session: 2026-04-01T13:48:00.003Z
+Stopped at: Completed 07-02-PLAN.md
 Resume file: None
