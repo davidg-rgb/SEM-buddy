@@ -1,0 +1,1 @@
+"""SEM Master CLI package."""
