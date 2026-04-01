@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: OAuth CLI Rework
-status: verifying
-stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-04-01T13:33:36.344Z"
+status: executing
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-04-01T13:43:28.643Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 5
+  completed_plans: 4
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** Automate the entire Google Ads campaign creation pipeline for a solo SEM consultant
-**Current focus:** Phase 06 — Config & Account Management
+**Current focus:** Phase 07 — OAuth & Token Management
 
 ## Current Position
 
-Phase: 7
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 07 (OAuth & Token Management) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
 Last activity: 2026-04-01
 
 Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.0 phases)
@@ -50,6 +50,7 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 | Phase 06 P01 | 4 | 2 tasks | 9 files |
 | Phase 06 P02 | 110 | 2 tasks | 3 files |
 | Phase 06 P03 | 3 | 2 tasks | 3 files |
+| Phase 07 P01 | 4 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,8 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 - [Phase 06-02]: archive=True default on remove_account moves to _archived/ subdir — safe default for production use
 - [Phase 06-03]: Lazy imports inside create_app() prevent circular import issues between CLI modules
 - [Phase 06-03]: set_cmd function name avoids shadowing Python built-in set type while registering as sem config set command
+- [Phase 07]: Port retry in run_oauth_flow: up to 3 attempts (port+0, port+1, port+2) before raising AuthError
+- [Phase 07]: Fernet key stored in keyring primary, ~/.sem-master/credentials/.keyfile fallback with 0o600 permissions
 
 ### Pending Todos
 
@@ -79,6 +82,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T13:29:06.159Z
-Stopped at: Completed 06-03-PLAN.md
+Last session: 2026-04-01T13:43:28.639Z
+Stopped at: Completed 07-01-PLAN.md
 Resume file: None

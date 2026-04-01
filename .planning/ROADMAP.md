@@ -86,7 +86,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — Auth core: OAuth flow, credential storage (keyring + Fernet), token refresh
+- [x] 07-01-PLAN.md — Auth core: OAuth flow, credential storage (keyring + Fernet), token refresh
 - [ ] 07-02-PLAN.md — Auth CLI: Google Ads client factory, auth commands, setup guide, ACCT-06
 
 ### Phase 8: Google Ads API Client Rewrite

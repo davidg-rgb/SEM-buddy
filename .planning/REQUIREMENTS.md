@@ -9,9 +9,9 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 
 ### Authentication
 
-- [ ] **AUTH-01**: Operator can authenticate with Google Ads API via OAuth 2.0 desktop flow (browser consent + localhost callback)
-- [ ] **AUTH-02**: OAuth tokens are stored securely using OS keyring with Fernet-encrypted file fallback
-- [ ] **AUTH-03**: Expired tokens are automatically refreshed without operator intervention
+- [x] **AUTH-01**: Operator can authenticate with Google Ads API via OAuth 2.0 desktop flow (browser consent + localhost callback)
+- [x] **AUTH-02**: OAuth tokens are stored securely using OS keyring with Fernet-encrypted file fallback
+- [x] **AUTH-03**: Expired tokens are automatically refreshed without operator intervention
 - [ ] **AUTH-04**: Operator can view auth status (token validity, MCC info, expiry time)
 - [ ] **AUTH-05**: Operator can logout and clear all stored credentials
 - [ ] **AUTH-06**: Operator can run interactive Google Cloud project setup guide
@@ -123,9 +123,9 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 | CLI-01 | Phase 6 - Config & Account Management | Complete |
 | CLI-04 | Phase 6 - Config & Account Management | Complete |
 | CLI-05 | Phase 6 - Config & Account Management | Complete |
-| AUTH-01 | Phase 7 - OAuth & Token Management | Pending |
-| AUTH-02 | Phase 7 - OAuth & Token Management | Pending |
-| AUTH-03 | Phase 7 - OAuth & Token Management | Pending |
+| AUTH-01 | Phase 7 - OAuth & Token Management | Complete |
+| AUTH-02 | Phase 7 - OAuth & Token Management | Complete |
+| AUTH-03 | Phase 7 - OAuth & Token Management | Complete |
 | AUTH-04 | Phase 7 - OAuth & Token Management | Pending |
 | AUTH-05 | Phase 7 - OAuth & Token Management | Pending |
 | AUTH-06 | Phase 7 - OAuth & Token Management | Pending |
