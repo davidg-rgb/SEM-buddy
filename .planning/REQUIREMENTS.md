@@ -27,18 +27,18 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 
 ### CLI Framework
 
-- [ ] **CLI-01**: `sem` command is installable via `pip install -e .` with pyproject.toml entry point
+- [x] **CLI-01**: `sem` command is installable via `pip install -e .` with pyproject.toml entry point
 - [ ] **CLI-02**: All command groups accessible: auth, accounts, pipeline, intake, research, competitors, keywords, campaign, validate, export, report, audit, templates, config
 - [ ] **CLI-03**: Every command defaults to active client when no client name provided
-- [ ] **CLI-04**: `--help` available on all commands with auto-generated documentation
+- [x] **CLI-04**: `--help` available on all commands with auto-generated documentation
 - [ ] **CLI-05**: Terminal output uses rich formatting (tables, colors, progress indicators)
 
 ### Configuration
 
-- [ ] **CFG-01**: Global config stored at `~/.sem-master/config.yaml` with sensible defaults
+- [x] **CFG-01**: Global config stored at `~/.sem-master/config.yaml` with sensible defaults
 - [ ] **CFG-02**: Operator can view, set, and edit config values via `sem config` commands
 - [ ] **CFG-03**: Per-client config stored as `account.yaml` in client directory
-- [ ] **CFG-04**: Config supports dot-notation access (e.g., `sem config set defaults.industry tandvård`)
+- [x] **CFG-04**: Config supports dot-notation access (e.g., `sem config set defaults.industry tandvård`)
 
 ### Pipeline
 
@@ -111,17 +111,17 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CFG-01 | Phase 6 - Config & Account Management | Pending |
+| CFG-01 | Phase 6 - Config & Account Management | Complete |
 | CFG-02 | Phase 6 - Config & Account Management | Pending |
 | CFG-03 | Phase 6 - Config & Account Management | Pending |
-| CFG-04 | Phase 6 - Config & Account Management | Pending |
+| CFG-04 | Phase 6 - Config & Account Management | Complete |
 | ACCT-01 | Phase 6 - Config & Account Management | Pending |
 | ACCT-02 | Phase 6 - Config & Account Management | Pending |
 | ACCT-03 | Phase 6 - Config & Account Management | Pending |
 | ACCT-04 | Phase 6 - Config & Account Management | Pending |
 | ACCT-05 | Phase 6 - Config & Account Management | Pending |
-| CLI-01 | Phase 6 - Config & Account Management | Pending |
-| CLI-04 | Phase 6 - Config & Account Management | Pending |
+| CLI-01 | Phase 6 - Config & Account Management | Complete |
+| CLI-04 | Phase 6 - Config & Account Management | Complete |
 | CLI-05 | Phase 6 - Config & Account Management | Pending |
 | AUTH-01 | Phase 7 - OAuth & Token Management | Pending |
 | AUTH-02 | Phase 7 - OAuth & Token Management | Pending |
