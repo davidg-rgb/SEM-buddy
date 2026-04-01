@@ -18,7 +18,7 @@ from src.accounts.manager import (
 )
 from src.accounts.state import get_pipeline_state, get_next_stage
 from src.utils.config import CLIENTS_DIR
-from src.auth import AuthError, AccountAccessDeniedError
+
 
 accounts_app = typer.Typer(name="accounts", help="Manage client accounts.")
 console = Console()
