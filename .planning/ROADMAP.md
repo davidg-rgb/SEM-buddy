@@ -115,8 +115,12 @@ Plans:
   3. `sem pipeline run acme --from keywords --to export` executes only the specified range of stages
   4. Running a stage out of order (e.g., `sem keywords acme` before `sem intake acme`) returns a clear prerequisite error
   5. `sem pipeline run acme --dry-run` completes end-to-end and the generated report contains a visible "DRY RUN" warning
-**Plans**: TBD
-**UI hint**: no
+**Plans**: 3 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — Stage helpers + data-gathering commands (intake, research, competitors, keywords)
+- [ ] 09-02-PLAN.md — Output-generation commands (campaign, validate, export, report) with DRY RUN warning
+- [ ] 09-03-PLAN.md — Pipeline orchestrator (run/status) and wiring all commands into app.py
 
 ### Phase 10: Templates & Audit
 **Goal**: Operator can save and reuse winning campaign structures as templates, and can pull live campaign data to compare against generated recommendations.
@@ -156,9 +160,9 @@ Plans:
 | 6. Config & Account Management | v2.0 | 3/3 | Complete   | 2026-04-01 |
 | 7. OAuth & Token Management | v2.0 | 2/2 | Complete | 2026-04-01 |
 | 8. Google Ads API Client Rewrite | v2.0 | 0/2 | Planned | - |
-| 9. CLI Pipeline Commands | v2.0 | 0/TBD | Not started | - |
+| 9. CLI Pipeline Commands | v2.0 | 0/3 | Planned | - |
 | 10. Templates & Audit | v2.0 | 0/TBD | Not started | - |
 | 11. Testing & Polish | v2.0 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-04-01 — Phase 8 planned (2 plans, 2 waves)*
+*Last updated: 2026-04-01 — Phase 9 planned (3 plans, 2 waves)*
