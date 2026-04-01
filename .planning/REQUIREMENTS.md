@@ -28,7 +28,7 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 ### CLI Framework
 
 - [x] **CLI-01**: `sem` command is installable via `pip install -e .` with pyproject.toml entry point
-- [x] **CLI-02**: All command groups accessible: auth, accounts, pipeline, intake, research, competitors, keywords, campaign, validate, export, report, audit, templates, config
+- [ ] **CLI-02**: All command groups accessible: auth, accounts, pipeline, intake, research, competitors, keywords, campaign, validate, export, report, audit, templates, config
 - [x] **CLI-03**: Every command defaults to active client when no client name provided
 - [x] **CLI-04**: `--help` available on all commands with auto-generated documentation
 - [x] **CLI-05**: Terminal output uses rich formatting (tables, colors, progress indicators)
