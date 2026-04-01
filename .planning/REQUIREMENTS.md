@@ -81,8 +81,8 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 - [ ] **INF-04**: All new modules have unit tests (auth, accounts, CLI, templates, audit)
 - [ ] **INF-05**: End-to-end dry-run pipeline test passes
 - [ ] **INF-06**: All 37 existing tests continue passing
-- [ ] **INF-07**: CLAUDE.md and .env.example updated for v2.0
-- [ ] **INF-08**: Unused dependencies removed (spacy, pyenchant)
+- [x] **INF-07**: CLAUDE.md and .env.example updated for v2.0
+- [x] **INF-08**: Unused dependencies removed (spacy, pyenchant)
 
 ## Future Requirements (Deferred)
 
@@ -156,8 +156,8 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 | INF-04 | Phase 11 - Testing & Polish | Pending |
 | INF-05 | Phase 11 - Testing & Polish | Pending |
 | INF-06 | Phase 11 - Testing & Polish | Pending |
-| INF-07 | Phase 11 - Testing & Polish | Pending |
-| INF-08 | Phase 11 - Testing & Polish | Pending |
+| INF-07 | Phase 11 - Testing & Polish | Complete |
+| INF-08 | Phase 11 - Testing & Polish | Complete |
 
 **Coverage:**
 - v2.0 requirements: 45 total

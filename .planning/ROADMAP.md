@@ -153,7 +153,7 @@ Plans:
 Plans:
 - [ ] 11-01-PLAN.md — Unit tests for auth, accounts, and pipeline state modules
 - [ ] 11-02-PLAN.md — Unit tests for templates, audit, CLI app, and e2e dry-run pipeline test
-- [ ] 11-03-PLAN.md — CLAUDE.md and .env.example update, dependency hygiene verification
+- [x] 11-03-PLAN.md — CLAUDE.md and .env.example update, dependency hygiene verification
 
 ---
 
@@ -171,7 +171,7 @@ Plans:
 | 8. Google Ads API Client Rewrite | v2.0 | 0/2 | Planned | - |
 | 9. CLI Pipeline Commands | v2.0 | 3/3 | Complete   | 2026-04-01 |
 | 10. Templates & Audit | v2.0 | 2/2 | Complete    | 2026-04-01 |
-| 11. Testing & Polish | v2.0 | 0/3 | Planned | - |
+| 11. Testing & Polish | v2.0 | 1/3 | In Progress|  |
 
 ---
 *Last updated: 2026-04-01 — Phase 11 planned (3 plans, 1 wave)*

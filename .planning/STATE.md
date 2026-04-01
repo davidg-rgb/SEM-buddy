@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: OAuth CLI Rework
-status: verifying
-stopped_at: Completed 10-02-PLAN.md
-last_updated: "2026-04-01T14:45:48.980Z"
+status: executing
+stopped_at: Completed 11-03-PLAN.md
+last_updated: "2026-04-01T14:54:32.342Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 6
   completed_phases: 5
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 15
+  completed_plans: 13
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** Automate the entire Google Ads campaign creation pipeline for a solo SEM consultant
-**Current focus:** Phase 10 — Templates & Audit
+**Current focus:** Phase 11 — Testing & Polish
 
 ## Current Position
 
-Phase: 11
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 11 (Testing & Polish) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-04-01
 
 Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.0 phases)
@@ -59,6 +59,7 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 | Phase 09 P03 | 10 | 2 tasks | 2 files |
 | Phase 10 P01 | 3 | 2 tasks | 5 files |
 | Phase 10-templates-audit P02 | 12 | 2 tasks | 5 files |
+| Phase 11-testing-polish P03 | 107s | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,8 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 - [Phase 10-templates-audit]: asyncio.run() sync wrapper in fetcher.py — CLI commands are sync but GoogleAdsService methods are async
 - [Phase 10-templates-audit]: Lazy import of audit modules inside audit() callback — consistent with Phase 06 pattern, avoids circular imports
 - [Phase 10-templates-audit]: Case-insensitive campaign name matching in comparator — Google Ads names may differ in capitalisation from generated plan
+- [Phase 11-testing-polish]: CLAUDE.md reflects v2.0 OAuth CLI architecture: all 14 command groups, OAuth flow, dry-run mode documented
+- [Phase 11-testing-polish]: .env.example removes direct OAuth credential fields; sem auth login + OS keyring manages them
 
 ### Pending Todos
 
@@ -110,6 +113,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T14:42:09.453Z
-Stopped at: Completed 10-02-PLAN.md
+Last session: 2026-04-01T14:54:32.337Z
+Stopped at: Completed 11-03-PLAN.md
 Resume file: None
