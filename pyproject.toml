@@ -22,6 +22,11 @@ dependencies = [
     "typer[all]>=0.12",
     "rich>=13.0",
     "pyyaml>=6.0",
+    "google-auth>=2.27",
+    "google-auth-oauthlib>=1.2",
+    "google-ads>=24.0",
+    "keyring>=25.0",
+    "cryptography>=42.0",
 ]
 
 [project.scripts]
