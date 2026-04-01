@@ -84,8 +84,21 @@ def setup() -> None:
 
 
 @auth_app.command("login")
-def login() -> None:
+def login(
+    force: bool = typer.Option(False, "--force", help="Re-authenticate even if valid tokens exist"),
+) -> None:
     """Start the OAuth flow and store tokens securely."""
+    if not force:
+        existing = load_tokens()
+        if existing is not None:
+            expiry_info = check_expiry(existing)
+            if expiry_info["valid"]:
+                rprint(
+                    "[yellow]Already authenticated.[/yellow] "
+                    "Use [bold]--force[/bold] to re-authenticate."
+                )
+                return
+
     if not _CLIENT_SECRET_PATH.exists():
         rprint(
             f"[red]client_secret.json not found at {_CLIENT_SECRET_PATH}[/red]\n"

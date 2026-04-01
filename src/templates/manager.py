@@ -12,10 +12,9 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pydantic import BaseModel
-
 from src.models.campaign import CampaignPlan
 from src.models.client import ClientProfile
+from src.models.template import CampaignTemplate
 from src.utils.config_manager import CONFIG_DIR
 
 TEMPLATES_DIR = CONFIG_DIR / "templates"
@@ -23,21 +22,6 @@ TEMPLATES_DIR = CONFIG_DIR / "templates"
 # Placeholder tokens written into the template (replaced on load)
 _PLACEHOLDER_COMPANY = "{Foretag}"
 _PLACEHOLDER_WEBSITE = "{website}"
-
-
-class CampaignTemplate(BaseModel):
-    """A saved campaign structure with client-specific data stripped out."""
-
-    name: str
-    description: str = ""
-    created_at: datetime
-    source_client: str
-    source_industry: str = ""
-    campaigns: list[dict]
-    sitelinks: list[dict] = []
-    callouts: list[dict] = []
-    snippets: list[dict] = []
-    call_extensions: list[dict] = []
 
 
 # ---------------------------------------------------------------------------
@@ -162,17 +146,34 @@ def save_template(
         campaign_plan, client
     )
 
+    # Extract ad group patterns from campaigns for reuse
+    ad_group_patterns = []
+    for camp in campaigns:
+        for ag in camp.get("ad_groups", []):
+            ad_group_patterns.append({
+                "theme": ag.get("theme", ag.get("name", "")),
+                "keyword_count": len(ag.get("keywords", [])),
+            })
+
     template = CampaignTemplate(
         name=name,
         description=description,
         created_at=datetime.now(timezone.utc),
         source_client=client.business_name,
         source_industry=client.industry,
-        campaigns=campaigns,
-        sitelinks=sitelinks,
-        callouts=callouts,
-        snippets=snippets,
-        call_extensions=call_extensions,
+        campaign_structures=campaigns,
+        ad_group_patterns=ad_group_patterns,
+        extension_patterns={
+            "sitelinks": sitelinks,
+            "callouts": callouts,
+            "snippets": snippets,
+            "call_extensions": call_extensions,
+        },
+        budget_strategy={
+            "campaign_count": len(campaigns),
+            "total_budget_sek": sum(c.get("budget_sek_daily", 0) for c in campaigns) * 30,
+            "bid_strategies": list({c.get("bid_strategy", "MANUAL_CPC") for c in campaigns}),
+        },
     )
 
     output_path = TEMPLATES_DIR / f"{name}.json"

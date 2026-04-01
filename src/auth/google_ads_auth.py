@@ -12,7 +12,7 @@ from typing import Optional
 from google.ads.googleads.client import GoogleAdsClient
 from google.oauth2.credentials import Credentials
 
-from src.auth import AuthError
+from src.auth import AuthError, NotAuthenticatedError
 from src.auth.credentials import load_tokens
 from src.auth.token_refresh import ensure_valid_token
 from src.utils import config_manager
@@ -72,9 +72,7 @@ def get_google_ads_client(customer_id: Optional[str] = None) -> GoogleAdsClient:
     """
     credentials = load_tokens()
     if credentials is None:
-        raise AuthError(
-            "Not authenticated. Run 'sem auth login' first."
-        )
+        raise NotAuthenticatedError()
 
     credentials = ensure_valid_token(credentials)
 

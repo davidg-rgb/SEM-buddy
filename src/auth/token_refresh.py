@@ -12,7 +12,7 @@ import google.auth.exceptions
 import google.auth.transport.requests
 from google.oauth2.credentials import Credentials
 
-from src.auth import AuthError
+from src.auth import AuthError, NotAuthenticatedError, TokenExpiredError
 from src.auth.credentials import store_tokens
 
 
@@ -37,8 +37,9 @@ def ensure_valid_token(credentials: Credentials) -> Credentials:
         return credentials
 
     if credentials.refresh_token is None:
-        raise AuthError(
-            "No refresh token available — re-authenticate with 'sem auth login'"
+        raise NotAuthenticatedError(
+            "No refresh token available.",
+            hint="Re-authenticate with 'sem auth login'.",
         )
 
     if credentials.expired:
@@ -49,15 +50,20 @@ def ensure_valid_token(credentials: Credentials) -> Credentials:
             store_tokens(credentials)
             return credentials
         except google.auth.exceptions.RefreshError as e:
-            raise AuthError(
-                f"Token refresh failed — re-authenticate with 'sem auth login': {e}"
+            raise TokenExpiredError(
+                f"Token refresh failed: {e}",
+                hint="Re-authenticate with 'sem auth login'.",
             ) from e
         except Exception as e:
-            raise AuthError(f"Network error during token refresh: {e}") from e
+            raise TokenExpiredError(
+                f"Network error during token refresh: {e}",
+                hint="Check network connection, then 'sem auth login'.",
+            ) from e
 
     # credentials.valid is False but not expired — edge case (e.g., revoked)
-    raise AuthError(
-        "Credentials are invalid — re-authenticate with 'sem auth login'"
+    raise TokenExpiredError(
+        "Credentials are invalid or revoked.",
+        hint="Re-authenticate with 'sem auth login'.",
     )
 
 

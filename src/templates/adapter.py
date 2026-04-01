@@ -21,7 +21,7 @@ from src.models.campaign import (
     StructuredSnippet,
 )
 from src.models.client import ClientProfile
-from src.templates.manager import CampaignTemplate
+from src.models.template import CampaignTemplate
 
 _PLACEHOLDER_COMPANY = "{Foretag}"
 _PLACEHOLDER_WEBSITE = "{website}"
@@ -165,29 +165,31 @@ def apply_template(
 
     # Adapt each campaign
     campaigns: list[Campaign] = []
-    for campaign_dict in template.campaigns:
+    for campaign_dict in template.campaign_structures:
         campaign_copy = copy.deepcopy(campaign_dict)
         adapted_campaign = _adapt_campaign(campaign_copy, client, keyword_groups)
         campaigns.append(adapted_campaign)
 
-    # Adapt extensions — replace placeholders only (geo not applicable)
+    # Adapt extensions from extension_patterns dict
+    ext = template.extension_patterns
+
     sitelinks: list[Sitelink] = []
-    for sl_dict in template.sitelinks:
+    for sl_dict in ext.get("sitelinks", []):
         adapted = _replace_placeholders_dict(sl_dict, business_name, website_url)
         sitelinks.append(Sitelink.model_validate(adapted))
 
     callouts: list[Callout] = []
-    for co_dict in template.callouts:
+    for co_dict in ext.get("callouts", []):
         adapted = _replace_placeholders_dict(co_dict, business_name, website_url)
         callouts.append(Callout.model_validate(adapted))
 
     snippets: list[StructuredSnippet] = []
-    for sn_dict in template.snippets:
+    for sn_dict in ext.get("snippets", []):
         adapted = _replace_placeholders_dict(sn_dict, business_name, website_url)
         snippets.append(StructuredSnippet.model_validate(adapted))
 
     call_extensions: list[CallExtension] = []
-    for ce_dict in template.call_extensions:
+    for ce_dict in ext.get("call_extensions", []):
         adapted = _replace_placeholders_dict(ce_dict, business_name, website_url)
         call_extensions.append(CallExtension.model_validate(adapted))
 
