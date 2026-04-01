@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: OAuth CLI Rework
-status: executing
-stopped_at: Completed 11-01-PLAN.md
-last_updated: "2026-04-01T14:56:10.741Z"
+status: verifying
+stopped_at: Completed 11-02-PLAN.md
+last_updated: "2026-04-01T15:01:17.862Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 15
-  completed_plans: 14
+  completed_plans: 15
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 
 Phase: 11 (Testing & Polish) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-01
 
 Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.0 phases)
@@ -61,6 +61,7 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 | Phase 10-templates-audit P02 | 12 | 2 tasks | 5 files |
 | Phase 11-testing-polish P03 | 107s | 2 tasks | 3 files |
 | Phase 11-testing-polish P01 | 3 | 2 tasks | 3 files |
+| Phase 11-testing-polish P02 | 470 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,8 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 - [Phase 11-testing-polish]: .env.example removes direct OAuth credential fields; sem auth login + OS keyring manages them
 - [Phase 11-testing-polish]: Inline import inside test body after monkeypatching module attributes ensures patched constants are used when function runs
 - [Phase 11-testing-polish]: Dict-backed fake keyring avoids OS keyring dependency, fully deterministic, no side-effects between tests
+- [Phase 11-testing-polish]: Stage apps invoked with --dry-run before positional arg — Typer invoke_without_command treats post-positional args as subcommands
+- [Phase 11-testing-polish]: competition fallback None (not UNKNOWN) in keywords_commands — None is valid for Pydantic Literal | None field
 
 ### Pending Todos
 
@@ -116,6 +119,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T14:56:10.736Z
-Stopped at: Completed 11-01-PLAN.md
+Last session: 2026-04-01T15:01:17.857Z
+Stopped at: Completed 11-02-PLAN.md
 Resume file: None

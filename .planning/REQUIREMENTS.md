@@ -79,7 +79,7 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 ### Infrastructure
 
 - [x] **INF-04**: All new modules have unit tests (auth, accounts, CLI, templates, audit)
-- [ ] **INF-05**: End-to-end dry-run pipeline test passes
+- [x] **INF-05**: End-to-end dry-run pipeline test passes
 - [x] **INF-06**: All 37 existing tests continue passing
 - [x] **INF-07**: CLAUDE.md and .env.example updated for v2.0
 - [x] **INF-08**: Unused dependencies removed (spacy, pyenchant)
@@ -154,7 +154,7 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 | AUD-02 | Phase 10 - Templates & Audit | Complete |
 | AUD-03 | Phase 10 - Templates & Audit | Complete |
 | INF-04 | Phase 11 - Testing & Polish | Complete |
-| INF-05 | Phase 11 - Testing & Polish | Pending |
+| INF-05 | Phase 11 - Testing & Polish | Complete |
 | INF-06 | Phase 11 - Testing & Polish | Complete |
 | INF-07 | Phase 11 - Testing & Polish | Complete |
 | INF-08 | Phase 11 - Testing & Polish | Complete |
