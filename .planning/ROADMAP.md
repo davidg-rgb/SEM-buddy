@@ -148,7 +148,12 @@ Plans:
   3. All 37 existing v0.2.0 tests continue passing (no regressions)
   4. `CLAUDE.md` and `.env.example` reflect the v2.0 OAuth-based architecture
   5. `pip show` confirms spacy and pyenchant are no longer in the dependency tree
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 11-01-PLAN.md — Unit tests for auth, accounts, and pipeline state modules
+- [ ] 11-02-PLAN.md — Unit tests for templates, audit, CLI app, and e2e dry-run pipeline test
+- [ ] 11-03-PLAN.md — CLAUDE.md and .env.example update, dependency hygiene verification
 
 ---
 
@@ -166,7 +171,7 @@ Plans:
 | 8. Google Ads API Client Rewrite | v2.0 | 0/2 | Planned | - |
 | 9. CLI Pipeline Commands | v2.0 | 3/3 | Complete   | 2026-04-01 |
 | 10. Templates & Audit | v2.0 | 2/2 | Complete    | 2026-04-01 |
-| 11. Testing & Polish | v2.0 | 0/TBD | Not started | - |
+| 11. Testing & Polish | v2.0 | 0/3 | Planned | - |
 
 ---
-*Last updated: 2026-04-01 — Phase 10 planned (2 plans, 2 waves)*
+*Last updated: 2026-04-01 — Phase 11 planned (3 plans, 1 wave)*
