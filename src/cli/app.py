@@ -60,6 +60,9 @@ def create_app() -> typer.Typer:
     # Pipeline orchestrator
     from src.cli.pipeline_commands import pipeline_app
 
+    # Template system
+    from src.cli.template_commands import template_app
+
     app.add_typer(config_app, name="config", help="View and modify global configuration.")
     app.add_typer(accounts_app, name="accounts", help="Manage client accounts.")
     app.add_typer(auth_app, name="auth", help="OAuth authentication and token management.")
@@ -74,6 +77,7 @@ def create_app() -> typer.Typer:
     app.add_typer(report_app, name="report", help="Generate strategy report.")
 
     app.add_typer(pipeline_app, name="pipeline", help="Run full or partial pipeline.")
+    app.add_typer(template_app, name="templates", help="Save and reuse campaign templates.")
 
     return app
 
