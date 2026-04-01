@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sem-master"
-version = "0.1.0"
+version = "2.0.0"
 description = "Automated Google Ads campaign creation for Swedish/Nordic clients"
 requires-python = ">=3.11"
 dependencies = [
@@ -18,8 +18,14 @@ dependencies = [
     "markdown-pdf>=1.13",
     "pypdf>=3.17",
     "python-dotenv>=1.0",
-    "spacy>=3.7",
+    "simplemma>=1.1",
+    "typer[all]>=0.12",
+    "rich>=13.0",
+    "pyyaml>=6.0",
 ]
+
+[project.scripts]
+sem = "src.cli.app:main"
 
 [project.optional-dependencies]
 dev = [

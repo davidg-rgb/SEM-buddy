@@ -1,4 +1,8 @@
-"""Configuration and settings for SEM Master."""
+"""Configuration and settings for SEM Master.
+
+Loads API keys from .env file. OAuth credentials are handled by the auth module.
+Global operator settings are managed by config_manager (config.yaml).
+"""
 
 from __future__ import annotations
 
@@ -19,22 +23,16 @@ CLIENTS_DIR = PROJECT_ROOT / "clients"
 
 class Settings(BaseModel):
     anthropic_api_key: str | None = None
-    google_ads_developer_token: str | None = None
-    google_ads_client_id: str | None = None
-    google_ads_client_secret: str | None = None
-    google_ads_refresh_token: str | None = None
     serp_api_key: str | None = None
     spyfu_api_key: str | None = None
+    valueserp_api_key: str | None = None
 
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings(
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
-        google_ads_developer_token=os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN"),
-        google_ads_client_id=os.getenv("GOOGLE_ADS_CLIENT_ID"),
-        google_ads_client_secret=os.getenv("GOOGLE_ADS_CLIENT_SECRET"),
-        google_ads_refresh_token=os.getenv("GOOGLE_ADS_REFRESH_TOKEN"),
         serp_api_key=os.getenv("SERP_API_KEY"),
         spyfu_api_key=os.getenv("SPYFU_API_KEY"),
+        valueserp_api_key=os.getenv("VALUESERP_API_KEY"),
     )
