@@ -140,3 +140,15 @@ None — all test files exercise real code paths, no placeholder data wired to p
 ---
 *Phase: 11-testing-polish*
 *Completed: 2026-04-01*
+
+## Self-Check: PASSED
+
+- tests/test_templates.py: FOUND
+- tests/test_audit_comparator.py: FOUND
+- tests/test_cli_app.py: FOUND
+- tests/test_pipeline_dry_run.py: FOUND
+- src/cli/pipeline_commands.py: FOUND (modified)
+- src/cli/keywords_commands.py: FOUND (modified)
+- Commit fe0e5eb: FOUND (test(11-02): template manager and audit comparator tests)
+- Commit 36b61e9: FOUND (test(11-02): CLI app and pipeline dry-run tests)
+- Commit af67547: FOUND (docs(11-02): plan metadata)
