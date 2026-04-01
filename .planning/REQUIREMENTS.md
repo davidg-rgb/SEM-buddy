@@ -29,7 +29,7 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 
 - [x] **CLI-01**: `sem` command is installable via `pip install -e .` with pyproject.toml entry point
 - [x] **CLI-02**: All command groups accessible: auth, accounts, pipeline, intake, research, competitors, keywords, campaign, validate, export, report, audit, templates, config
-- [ ] **CLI-03**: Every command defaults to active client when no client name provided
+- [x] **CLI-03**: Every command defaults to active client when no client name provided
 - [x] **CLI-04**: `--help` available on all commands with auto-generated documentation
 - [x] **CLI-05**: Terminal output uses rich formatting (tables, colors, progress indicators)
 
@@ -44,8 +44,8 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 
 - [x] **PIPE-01**: Each pipeline stage (intake through report) callable as individual `sem <stage> <client>` command
 - [ ] **PIPE-02**: `sem pipeline run <client>` executes all stages in sequence with progress tracking
-- [ ] **PIPE-03**: Pipeline enforces stage prerequisites (can't run keywords before intake)
-- [ ] **PIPE-04**: Per-client workflow_state.json tracks stage completion with timestamps
+- [x] **PIPE-03**: Pipeline enforces stage prerequisites (can't run keywords before intake)
+- [x] **PIPE-04**: Per-client workflow_state.json tracks stage completion with timestamps
 - [ ] **PIPE-05**: `sem pipeline run --from <stage> --to <stage>` supports partial pipeline execution
 
 ### Google Ads API
@@ -138,11 +138,11 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 | DRY-01 | Phase 8 - Google Ads API Client | Complete |
 | DRY-02 | Phase 8 - Google Ads API Client | Complete |
 | CLI-02 | Phase 9 - CLI Pipeline Commands | Complete |
-| CLI-03 | Phase 9 - CLI Pipeline Commands | Pending |
+| CLI-03 | Phase 9 - CLI Pipeline Commands | Complete |
 | PIPE-01 | Phase 9 - CLI Pipeline Commands | Complete |
 | PIPE-02 | Phase 9 - CLI Pipeline Commands | Pending |
-| PIPE-03 | Phase 9 - CLI Pipeline Commands | Pending |
-| PIPE-04 | Phase 9 - CLI Pipeline Commands | Pending |
+| PIPE-03 | Phase 9 - CLI Pipeline Commands | Complete |
+| PIPE-04 | Phase 9 - CLI Pipeline Commands | Complete |
 | PIPE-05 | Phase 9 - CLI Pipeline Commands | Pending |
 | DRY-03 | Phase 9 - CLI Pipeline Commands | Complete |
 | DRY-04 | Phase 9 - CLI Pipeline Commands | Complete |

@@ -160,7 +160,7 @@ Plans:
 | 6. Config & Account Management | v2.0 | 3/3 | Complete   | 2026-04-01 |
 | 7. OAuth & Token Management | v2.0 | 2/2 | Complete | 2026-04-01 |
 | 8. Google Ads API Client Rewrite | v2.0 | 0/2 | Planned | - |
-| 9. CLI Pipeline Commands | v2.0 | 0/3 | Planned | - |
+| 9. CLI Pipeline Commands | v2.0 | 2/3 | In Progress|  |
 | 10. Templates & Audit | v2.0 | 0/TBD | Not started | - |
 | 11. Testing & Polish | v2.0 | 0/TBD | Not started | - |
 

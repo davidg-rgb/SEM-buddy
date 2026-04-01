@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: OAuth CLI Rework
 status: executing
-stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-04-01T14:18:35.827Z"
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-04-01T14:18:45.800Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 6
@@ -85,6 +85,9 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 - [Phase 08-02]: get_ads_service factory function pattern: dry_run=True returns DryRunGoogleAdsService, dry_run=False returns GoogleAdsService
 - [Phase 09]: importlib.util used to load validate_campaign.py — avoids sys.path mutation while keeping scripts/ at project root
 - [Phase 09]: DRY-04: DRY RUN banner prepended to markdown string then passed to generate_pdf_report directly — ensures banner in PDF without regenerating markdown
+- [Phase Phase 09-01]: Stage helpers extracted to stage_helpers.py — keeps each command module small and consistent
+- [Phase Phase 09-01]: Dry-run mode creates synthetic data for all stages — enables full pipeline testing without API credentials
+- [Phase Phase 09-01]: Competitors non-dry-run structures known_competitors from intake profile; real scraper integration deferred to sem-competitor-ads skill
 
 ### Pending Todos
 
@@ -96,6 +99,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T14:18:26.162Z
-Stopped at: Completed 09-02-PLAN.md
+Last session: 2026-04-01T14:18:45.795Z
+Stopped at: Completed 09-01-PLAN.md
 Resume file: None
