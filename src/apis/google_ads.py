@@ -2,11 +2,15 @@
 
 GoogleAdsService wraps the google-ads SDK to provide keyword research and
 campaign data retrieval targeting the Swedish market.
+
+DryRunGoogleAdsService overrides every method with synthetic data for use in
+dry-run demos or testing without API credentials.
 """
 
 from __future__ import annotations
 
 import logging
+import random
 from typing import Optional
 
 from src.auth import AuthError
@@ -397,3 +401,291 @@ class GoogleAdsService:
             "currency": customer.currency_code,
             "timezone": customer.time_zone,
         }
+
+
+# ---------------------------------------------------------------------------
+# Swedish keyword expansion helpers (used by DryRunGoogleAdsService)
+# ---------------------------------------------------------------------------
+
+# Common Swedish prefixes/suffixes for keyword expansion in dry-run mode
+_SWEDISH_MODIFIERS = [
+    "stockholm",
+    "bästa",
+    "billig",
+    "professionell",
+    "akut",
+    "pris",
+    "erbjudande",
+    "nära mig",
+    "anlita",
+    "jämför",
+    "online",
+    "snabb",
+]
+
+# Swedish RSA headlines (max 30 chars) — reusable across synthetic ads
+_SWEDISH_HEADLINES = [
+    "Ring oss idag",          # 14
+    "Gratis offert",          # 14
+    "Bästa priset",           # 13
+    "Erfarna experter",       # 17
+    "Snabb leverans",         # 15
+    "Kvalitet garanteras",    # 21
+    "Kontakta oss nu",        # 16
+    "Boka tid online",        # 16
+    "Vi löser problemet",     # 20
+    "Nöjda kunder",           # 13
+    "20 års erfarenhet",      # 18
+    "Certifierade proffs",    # 21
+]
+
+# Swedish RSA descriptions (max 90 chars)
+_SWEDISH_DESCRIPTIONS = [
+    "Vi erbjuder professionell service till konkurrenskraftiga priser. Kontakta oss idag!",  # 84
+    "Över 500 nöjda kunder. Boka en kostnadsfri konsultation och få ett skräddarsytt erbjudande.",  # 90 – trim
+    "Snabb och pålitlig service i hela Sverige. Certifierade experter redo att hjälpa dig.",  # 86
+    "Jämför priser och spara pengar. Vi matchar konkurrenternas priser — ring oss nu!",  # 81
+]
+
+# Ensure descriptions fit within 90 chars
+_SWEDISH_DESCRIPTIONS = [d[:90] for d in _SWEDISH_DESCRIPTIONS]
+
+
+def _seed_rng_for_keywords(seeds: list[str]) -> random.Random:
+    """Return a seeded RNG based on a stable hash of the seed list."""
+    seed_hash = hash(tuple(sorted(seeds))) % (2**31)
+    return random.Random(seed_hash)
+
+
+def _expand_keywords(seeds: list[str], rng: random.Random) -> list[str]:
+    """Expand a seed list with Swedish modifier combinations."""
+    results = list(seeds)  # always include the originals
+    for seed in seeds:
+        modifiers = rng.sample(_SWEDISH_MODIFIERS, k=min(4, len(_SWEDISH_MODIFIERS)))
+        for mod in modifiers:
+            # Alternate prefix/suffix placement
+            if rng.random() > 0.5:
+                results.append(f"{seed} {mod}")
+            else:
+                results.append(f"{mod} {seed}")
+    # Deduplicate while preserving order, cap at 15
+    seen: set[str] = set()
+    unique = []
+    for r in results:
+        if r not in seen:
+            seen.add(r)
+            unique.append(r)
+        if len(unique) >= 15:
+            break
+    return unique
+
+
+# ---------------------------------------------------------------------------
+# DryRunGoogleAdsService
+# ---------------------------------------------------------------------------
+
+
+class DryRunGoogleAdsService(GoogleAdsService):
+    """Mock service returning synthetic data for dry-run mode.
+
+    No credentials required. Overrides every async method of GoogleAdsService
+    with deterministic synthetic data suitable for demos, testing, and pipeline
+    dry-runs.
+
+    All randomness is seeded so that the same inputs always produce the same
+    outputs.
+    """
+
+    def __init__(self, customer_id: str) -> None:
+        """Initialize without calling the parent auth setup.
+
+        Args:
+            customer_id: Google Ads customer ID (hyphens stripped).
+        """
+        self._customer_id = customer_id.replace("-", "")
+        self._client = None
+        self._ga_service = None
+        logger.info("Dry-run mode — using synthetic Google Ads data")
+
+    # ------------------------------------------------------------------
+    # Synthetic data helpers
+    # ------------------------------------------------------------------
+
+    def _make_rng(self, *parts: str) -> random.Random:
+        """Stable RNG seeded from customer_id + extra context parts."""
+        seed = hash((self._customer_id,) + parts) % (2**31)
+        return random.Random(seed)
+
+    # ------------------------------------------------------------------
+    # Keyword Planner methods
+    # ------------------------------------------------------------------
+
+    async def get_keyword_ideas(
+        self,
+        seeds: list[str],
+        geo_id: int = SWEDEN_GEO_ID,
+        language_id: int = SWEDISH_LANG_ID,
+        page_size: int = 1000,
+    ) -> list[dict]:
+        """Return synthetic keyword ideas for the given seeds."""
+        rng = _seed_rng_for_keywords(seeds)
+        expansions = _expand_keywords(seeds, rng)
+
+        results = []
+        for text in expansions:
+            results.append(
+                {
+                    "text": text,
+                    "avg_monthly_searches": rng.randint(50, 12000),
+                    "competition": rng.choice(["LOW", "MEDIUM", "HIGH"]),
+                    "avg_cpc_micros": rng.randint(2_000_000, 25_000_000),
+                    "competition_index": rng.randint(10, 90),
+                }
+            )
+        return results
+
+    async def get_search_volumes(
+        self,
+        keywords: list[str],
+        geo_id: int = SWEDEN_GEO_ID,
+        language_id: int = SWEDISH_LANG_ID,
+    ) -> list[dict]:
+        """Return synthetic search volume data for each keyword."""
+        rng = _seed_rng_for_keywords(keywords)
+        results = []
+        for kw in keywords:
+            results.append(
+                {
+                    "keyword": kw,
+                    "monthly_searches": rng.randint(100, 5000),
+                    "avg_cpc_sek": round(rng.uniform(2.0, 25.0), 2),
+                    "competition": rng.choice(["LOW", "MEDIUM", "HIGH"]),
+                }
+            )
+        return results
+
+    # ------------------------------------------------------------------
+    # Campaign structure methods
+    # ------------------------------------------------------------------
+
+    async def get_campaigns(self, include_removed: bool = False) -> list[dict]:
+        """Return synthetic campaigns (1 Search, 1 Display, 1 Paused)."""
+        campaigns = [
+            {
+                "id": f"{self._customer_id}_c1",
+                "name": "Söknätverkskampanj - Brand",
+                "status": "ENABLED",
+                "advertising_channel_type": "SEARCH",
+            },
+            {
+                "id": f"{self._customer_id}_c2",
+                "name": "Displaykampanj - Remarketing",
+                "status": "ENABLED",
+                "advertising_channel_type": "DISPLAY",
+            },
+            {
+                "id": f"{self._customer_id}_c3",
+                "name": "Söknätverkskampanj - Generisk",
+                "status": "PAUSED",
+                "advertising_channel_type": "SEARCH",
+            },
+        ]
+        if not include_removed:
+            campaigns = [c for c in campaigns if c["status"] != "REMOVED"]
+        return campaigns
+
+    async def get_ad_groups(self, campaign_id: str) -> list[dict]:
+        """Return 2 synthetic ad groups per campaign."""
+        return [
+            {
+                "id": f"{campaign_id}_ag1",
+                "name": "Varumärke - Exakt",
+                "status": "ENABLED",
+                "type": "SEARCH_STANDARD",
+            },
+            {
+                "id": f"{campaign_id}_ag2",
+                "name": "Generisk - Bred",
+                "status": "ENABLED",
+                "type": "SEARCH_STANDARD",
+            },
+        ]
+
+    async def get_keywords(
+        self, ad_group_id: Optional[str] = None
+    ) -> list[dict]:
+        """Return synthetic keywords (4-6 per ad group)."""
+        rng = self._make_rng("keywords", ad_group_id or "all")
+        swedish_terms = [
+            "tandläkare stockholm",
+            "bästa tandvård",
+            "akut tandläkare",
+            "tandvård billig",
+            "tandimplantat pris",
+            "tandhygienist stockholm",
+        ]
+        count = rng.randint(4, 6)
+        match_types = ["EXACT", "PHRASE", "BROAD"]
+        results = []
+        for i, term in enumerate(swedish_terms[:count]):
+            results.append(
+                {
+                    "text": term,
+                    "match_type": match_types[i % len(match_types)],
+                    "status": "ENABLED",
+                }
+            )
+        return results
+
+    async def get_ads(
+        self, ad_group_id: Optional[str] = None
+    ) -> list[dict]:
+        """Return 1-2 synthetic responsive search ads per ad group."""
+        rng = self._make_rng("ads", ad_group_id or "all")
+        count = rng.randint(1, 2)
+        ads = []
+        for _ in range(count):
+            headlines = rng.sample(_SWEDISH_HEADLINES, k=3)
+            descriptions = rng.sample(_SWEDISH_DESCRIPTIONS, k=2)
+            ads.append(
+                {
+                    "headlines": headlines,
+                    "descriptions": descriptions,
+                    "status": "ENABLED",
+                }
+            )
+        return ads
+
+    async def get_account_info(self) -> dict:
+        """Return synthetic account info for dry-run mode."""
+        return {
+            "id": self._customer_id,
+            "name": "Dry-Run Test Account",
+            "currency": "SEK",
+            "timezone": "Europe/Stockholm",
+        }
+
+
+# ---------------------------------------------------------------------------
+# Factory function
+# ---------------------------------------------------------------------------
+
+
+def get_ads_service(customer_id: str, dry_run: bool = False) -> GoogleAdsService:
+    """Return a GoogleAdsService or DryRunGoogleAdsService based on dry_run flag.
+
+    Args:
+        customer_id: Google Ads customer ID.
+        dry_run: When True, returns DryRunGoogleAdsService which requires no
+            credentials. When False (default), returns GoogleAdsService which
+            requires valid OAuth tokens.
+
+    Returns:
+        GoogleAdsService or DryRunGoogleAdsService instance.
+
+    Raises:
+        AuthError: If dry_run=False and no stored tokens are available.
+    """
+    if dry_run:
+        return DryRunGoogleAdsService(customer_id)
+    return GoogleAdsService(customer_id)
