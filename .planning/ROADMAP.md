@@ -71,7 +71,7 @@ Plans:
 Plans:
 - [x] 06-01-PLAN.md — Foundation: models, config_manager, CLI entry point, dependencies
 - [x] 06-02-PLAN.md — Account management: CRUD, per-client config, pipeline state
-- [ ] 06-03-PLAN.md — CLI commands: config and accounts subcommands with rich output
+- [x] 06-03-PLAN.md — CLI commands: config and accounts subcommands with rich output
 
 ### Phase 7: OAuth & Token Management
 **Goal**: Operator can authenticate with the Google Ads API via OAuth 2.0 and tokens are stored securely with automatic refresh.
@@ -145,7 +145,7 @@ Plans:
 | 3. CSV Export & NLP | v0.2.0 | 2/2 | Complete | 2026-03-06 |
 | 4. PDF Report | v0.2.0 | 1/1 | Complete | 2026-03-06 |
 | 5. Test Suite & Validation | v0.2.0 | 1/1 | Complete | 2026-03-06 |
-| 6. Config & Account Management | v2.0 | 2/3 | In Progress|  |
+| 6. Config & Account Management | v2.0 | 3/3 | Complete   | 2026-04-01 |
 | 7. OAuth & Token Management | v2.0 | 0/TBD | Not started | - |
 | 8. Google Ads API Client Rewrite | v2.0 | 0/TBD | Not started | - |
 | 9. CLI Pipeline Commands | v2.0 | 0/TBD | Not started | - |
