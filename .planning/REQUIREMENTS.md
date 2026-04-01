@@ -58,8 +58,8 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 
 ### Dry-Run Mode
 
-- [ ] **DRY-01**: `--dry-run` flag available on all pipeline and stage commands
-- [ ] **DRY-02**: Dry-run substitutes DryRunGoogleAdsService with realistic synthetic data
+- [x] **DRY-01**: `--dry-run` flag available on all pipeline and stage commands
+- [x] **DRY-02**: Dry-run substitutes DryRunGoogleAdsService with realistic synthetic data
 - [ ] **DRY-03**: Full pipeline completes end-to-end in dry-run without any API credentials
 - [ ] **DRY-04**: Reports generated in dry-run mode include visible "DRY RUN" warning
 
@@ -135,8 +135,8 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 | GADS-03 | Phase 8 - Google Ads API Client | Complete |
 | GADS-04 | Phase 8 - Google Ads API Client | Complete |
 | GADS-05 | Phase 8 - Google Ads API Client | Complete |
-| DRY-01 | Phase 8 - Google Ads API Client | Pending |
-| DRY-02 | Phase 8 - Google Ads API Client | Pending |
+| DRY-01 | Phase 8 - Google Ads API Client | Complete |
+| DRY-02 | Phase 8 - Google Ads API Client | Complete |
 | CLI-02 | Phase 9 - CLI Pipeline Commands | Pending |
 | CLI-03 | Phase 9 - CLI Pipeline Commands | Pending |
 | PIPE-01 | Phase 9 - CLI Pipeline Commands | Pending |

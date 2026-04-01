@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: OAuth CLI Rework
-status: executing
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-04-01T13:59:47.285Z"
+status: verifying
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-04-01T14:04:22.151Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 
 Phase: 08 (Google Ads API Client Rewrite) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-01
 
 Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.0 phases)
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 | Phase 07 P01 | 4 | 2 tasks | 5 files |
 | Phase 07 P02 | 4 | 2 tasks | 5 files |
 | Phase 08 P01 | 125 | 2 tasks | 3 files |
+| Phase 08 P02 | 5 | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,8 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 - [Phase 08]: GoogleAdsService._search centralises GAQL error wrapping for all campaign data methods
 - [Phase 08]: get_search_volumes delegates to get_keyword_ideas and filters results to avoid duplicate SDK logic
 - [Phase 08]: AuthError from Phase 7 propagates unchanged from GoogleAdsService.__init__ -- callers handle auth state
+- [Phase 08-02]: DryRunGoogleAdsService skips super().__init__() entirely — no auth call — callers use factory function to select real vs dry-run
+- [Phase 08-02]: get_ads_service factory function pattern: dry_run=True returns DryRunGoogleAdsService, dry_run=False returns GoogleAdsService
 
 ### Pending Todos
 
@@ -89,6 +92,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T13:59:47.281Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-04-01T14:04:22.146Z
+Stopped at: Completed 08-02-PLAN.md
 Resume file: None

@@ -103,7 +103,7 @@ Plans:
 
 Plans:
 - [x] 08-01-PLAN.md — Error hierarchy and GoogleAdsService with official SDK (7 async methods)
-- [ ] 08-02-PLAN.md — DryRunGoogleAdsService with synthetic data and factory function
+- [x] 08-02-PLAN.md — DryRunGoogleAdsService with synthetic data and factory function
 
 ### Phase 9: CLI Pipeline Commands
 **Goal**: Every pipeline stage is callable as an individual `sem <stage> <client>` command, the full pipeline runs end-to-end, and dry-run completes without API credentials.
