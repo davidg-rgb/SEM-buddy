@@ -43,10 +43,10 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 ### Pipeline
 
 - [x] **PIPE-01**: Each pipeline stage (intake through report) callable as individual `sem <stage> <client>` command
-- [ ] **PIPE-02**: `sem pipeline run <client>` executes all stages in sequence with progress tracking
+- [x] **PIPE-02**: `sem pipeline run <client>` executes all stages in sequence with progress tracking
 - [x] **PIPE-03**: Pipeline enforces stage prerequisites (can't run keywords before intake)
 - [x] **PIPE-04**: Per-client workflow_state.json tracks stage completion with timestamps
-- [ ] **PIPE-05**: `sem pipeline run --from <stage> --to <stage>` supports partial pipeline execution
+- [x] **PIPE-05**: `sem pipeline run --from <stage> --to <stage>` supports partial pipeline execution
 
 ### Google Ads API
 
@@ -140,10 +140,10 @@ Requirements for the OAuth CLI Rework milestone. Each maps to roadmap phases.
 | CLI-02 | Phase 9 - CLI Pipeline Commands | Complete |
 | CLI-03 | Phase 9 - CLI Pipeline Commands | Complete |
 | PIPE-01 | Phase 9 - CLI Pipeline Commands | Complete |
-| PIPE-02 | Phase 9 - CLI Pipeline Commands | Pending |
+| PIPE-02 | Phase 9 - CLI Pipeline Commands | Complete |
 | PIPE-03 | Phase 9 - CLI Pipeline Commands | Complete |
 | PIPE-04 | Phase 9 - CLI Pipeline Commands | Complete |
-| PIPE-05 | Phase 9 - CLI Pipeline Commands | Pending |
+| PIPE-05 | Phase 9 - CLI Pipeline Commands | Complete |
 | DRY-03 | Phase 9 - CLI Pipeline Commands | Complete |
 | DRY-04 | Phase 9 - CLI Pipeline Commands | Complete |
 | TMPL-01 | Phase 10 - Templates & Audit | Pending |

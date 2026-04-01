@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: OAuth CLI Rework
-status: executing
-stopped_at: Completed 09-01-PLAN.md
-last_updated: "2026-04-01T14:18:45.800Z"
+status: verifying
+stopped_at: Completed 09-03-PLAN.md
+last_updated: "2026-04-01T14:22:20.376Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 
 Phase: 09 (CLI Pipeline Commands) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-01
 
 Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.0 phases)
@@ -56,6 +56,7 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 | Phase 08 P02 | 5 | 1 tasks | 3 files |
 | Phase 09 P02 | 3 | 2 tasks | 4 files |
 | Phase 09 P01 | 3 | 2 tasks | 5 files |
+| Phase 09 P03 | 10 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,8 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.
 - [Phase Phase 09-01]: Stage helpers extracted to stage_helpers.py — keeps each command module small and consistent
 - [Phase Phase 09-01]: Dry-run mode creates synthetic data for all stages — enables full pipeline testing without API credentials
 - [Phase Phase 09-01]: Competitors non-dry-run structures known_competitors from intake profile; real scraper integration deferred to sem-competitor-ads skill
+- [Phase 09-03]: CliRunner from typer.testing used to invoke each stage app — correct Typer CLI invocation without subprocess overhead
+- [Phase 09-03]: _STAGES_WITHOUT_DRY_RUN set excludes validate from --dry-run flag since validate_commands.py has no such parameter
 
 ### Pending Todos
 
@@ -99,6 +102,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T14:18:45.795Z
-Stopped at: Completed 09-01-PLAN.md
+Last session: 2026-04-01T14:22:20.371Z
+Stopped at: Completed 09-03-PLAN.md
 Resume file: None
