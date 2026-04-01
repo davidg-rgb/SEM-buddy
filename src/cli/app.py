@@ -45,9 +45,11 @@ def create_app() -> typer.Typer:
     # Lazy imports inside create_app to avoid circular imports and keep startup fast
     from src.cli.config_commands import config_app
     from src.cli.accounts_commands import accounts_app
+    from src.cli.auth_commands import auth_app
 
     app.add_typer(config_app, name="config", help="View and modify global configuration.")
     app.add_typer(accounts_app, name="accounts", help="Manage client accounts.")
+    app.add_typer(auth_app, name="auth", help="OAuth authentication and token management.")
 
     return app
 

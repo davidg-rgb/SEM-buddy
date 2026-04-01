@@ -18,6 +18,7 @@ from src.accounts.manager import (
 )
 from src.accounts.state import get_pipeline_state, get_next_stage
 from src.utils.config import CLIENTS_DIR
+from src.auth import AuthError
 
 accounts_app = typer.Typer(name="accounts", help="Manage client accounts.")
 console = Console()
@@ -70,6 +71,9 @@ def add(
     customer_id: str = typer.Argument(..., help="Google Ads Customer ID (XXX-XXX-XXXX)"),
     industry: str = typer.Option(None, "--industry", "-i", help="Industry key"),
     budget: int = typer.Option(None, "--budget", "-b", help="Monthly budget in SEK"),
+    verify_mcc: bool = typer.Option(
+        False, "--verify", help="Verify account is accessible under MCC via Google Ads API"
+    ),
 ) -> None:
     """Register a new client account and create its directory structure."""
     try:
@@ -81,6 +85,29 @@ def add(
     except Exception as exc:
         rprint(f"[red]Error: {exc}[/red]")
         raise typer.Exit(1)
+
+    if verify_mcc:
+        try:
+            from src.auth.google_ads_auth import get_google_ads_client
+
+            client = get_google_ads_client()
+            # Strip hyphens from customer_id for API comparison
+            clean_id = customer_id.replace("-", "")
+            # Use CustomerService to verify accessibility
+            ga_service = client.get_service("CustomerService")
+            # list_accessible_customers returns resource names like "customers/1234567890"
+            accessible = ga_service.list_accessible_customers()
+            accessible_ids = [r.split("/")[-1] for r in accessible.resource_names]
+            if clean_id not in accessible_ids:
+                rprint(
+                    f"[yellow]Warning: Account {customer_id} is not accessible under your MCC. "
+                    f"Check that the account is linked to your MCC.[/yellow]"
+                )
+            else:
+                rprint(f"[green]Verified: Account {customer_id} is accessible under MCC.[/green]")
+        except Exception as exc:
+            rprint(f"[yellow]Could not verify MCC access: {exc}[/yellow]")
+            rprint("[dim]Account was created locally. Verify MCC access manually.[/dim]")
 
 
 @accounts_app.command("remove")
