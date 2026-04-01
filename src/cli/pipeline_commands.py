@@ -123,10 +123,14 @@ def run(
     for i, stage in enumerate(stages_to_run, start=1):
         console.print(f"\n[bold cyan]Stage {i}/{total}: {stage}[/bold cyan]")
 
-        # Build CLI args for this stage
-        args: list[str] = [name]
+        # Build CLI args for this stage.
+        # --dry-run must appear before the positional [CLIENT] argument so that
+        # Typer's invoke_without_command parser sees it as an option, not a
+        # subcommand name.
+        args: list[str] = []
         if dry_run and stage not in _STAGES_WITHOUT_DRY_RUN:
             args.append("--dry-run")
+        args.append(name)
 
         result = runner.invoke(stage_apps[stage], args)
 

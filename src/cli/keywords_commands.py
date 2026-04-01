@@ -122,7 +122,7 @@ def run(
                 {
                     "text": kw_text,
                     "avg_monthly_searches": vol_entry.get("avg_monthly_searches", 0),
-                    "competition": vol_entry.get("competition", "UNKNOWN"),
+                    "competition": vol_entry.get("competition") or None,
                     "avg_cpc_sek": vol_entry.get("avg_cpc_micros", 0) / 1_000_000
                     if vol_entry.get("avg_cpc_micros")
                     else 0.0,
