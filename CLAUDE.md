@@ -8,7 +8,7 @@ Google Ads campaign automation tool for Swedish/Nordic clients. Generates comple
 src/
   auth/         - OAuth 2.0 flow, credential storage (keyring + Fernet), token refresh
   accounts/     - Multi-client CRUD, account config, pipeline state machine
-  cli/          - Typer CLI app, command modules (14 command groups)
+  cli/          - Typer CLI app, command modules (15 command groups)
   templates/    - Campaign template save/load/adapt system
   audit/        - Live campaign fetch, structured diff comparator
   apis/         - Google Ads SDK client (official google-ads), DryRunGoogleAdsService
@@ -51,6 +51,7 @@ sem report run <client>                           Strategy report
 sem pipeline run <client> [--from X --to Y] [--dry-run]  Full pipeline
 sem templates save|list|load|delete               Campaign templates
 sem audit run <client>                            Compare live vs recommended
+sem seo run <url> [--mode single|site] [--competitors url1,url2] [--client name] [--output markdown|pdf|xlsx] [--skip-lighthouse] [--dry-run]  SEO analysis
 ```
 
 ## Authentication
@@ -65,7 +66,7 @@ OAuth 2.0 flow for Google Ads API access:
 
 ## Skills
 
-7 skills installed at `~/.claude/skills/sem-*`:
+8 skills installed at `~/.claude/skills/sem-*`:
 - `sem-master` - Orchestrator, main entry point
 - `sem-intake` - Client onboarding
 - `sem-research` - Data collection / scraping
@@ -73,6 +74,7 @@ OAuth 2.0 flow for Google Ads API access:
 - `sem-keywords` - Keyword research & grouping
 - `sem-campaign-builder` - Campaign structure & ad copy & CSV export
 - `sem-report` - Report generation
+- `sem-seo` - SEO analysis (on-page + technical)
 
 ## Key Conventions
 
@@ -82,7 +84,7 @@ OAuth 2.0 flow for Google Ads API access:
 - **CSV export**: UTF-8 BOM encoding for Excel compatibility
 - **Swedish market constants**: Sweden geo ID 2752, Swedish language ID 1053
 - **Match type strategy**: <10K SEK exact+phrase, 10-30K phrase primary, >30K broad+smart bidding
-- **Client data**: Stored in `clients/{name}/` with subdirs for intake, research, competitors, keywords, campaigns, reports
+- **Client data**: Stored in `clients/{name}/` with subdirs for intake, research, competitors, keywords, campaigns, reports, seo
 - **Workflow state**: `clients/{name}/account.yaml` tracks pipeline state per client
 - **Config**: Global config at `~/.sem-master/config.yaml`, per-client at `clients/{name}/account.yaml`
 - **Dry-run mode**: `--dry-run` flag on all pipeline/stage commands uses synthetic data; no API credentials needed

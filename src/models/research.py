@@ -51,3 +51,4 @@ class DigitalPresence(BaseModel):
     google_business: GoogleBusinessProfile | None = None
     reviews: list[Review] = []
     social_profiles: list[SocialProfile] = []
+    seo_data: dict | None = None  # SeoAnalysisResult dict when available
