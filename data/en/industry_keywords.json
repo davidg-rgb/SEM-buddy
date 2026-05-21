@@ -1,0 +1,58 @@
+{
+  "travel": [
+    "cheap flights",
+    "flight deals",
+    "airline tickets",
+    "book flights",
+    "compare flights",
+    "discount airfare",
+    "last minute flights",
+    "vacation deals"
+  ],
+  "hotels": [
+    "hotel booking",
+    "cheap hotels",
+    "hotel deals",
+    "discount hotels",
+    "luxury hotels",
+    "boutique hotel",
+    "hotel near me"
+  ],
+  "car_rental": [
+    "car rental",
+    "rent a car",
+    "car hire",
+    "rental car deals",
+    "cheap car rental"
+  ],
+  "cruise": [
+    "cruise deals",
+    "cruise booking",
+    "cheap cruises",
+    "all inclusive cruise",
+    "cruise vacation"
+  ],
+  "ecommerce": [
+    "buy online",
+    "shop online",
+    "discount",
+    "deals",
+    "free shipping",
+    "best price"
+  ],
+  "real_estate": [
+    "houses for sale",
+    "apartments for rent",
+    "property listings",
+    "real estate agent"
+  ],
+  "saas": [
+    "software",
+    "platform",
+    "tool",
+    "solution",
+    "trial",
+    "demo",
+    "pricing"
+  ]
+}

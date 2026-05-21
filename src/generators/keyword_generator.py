@@ -1,4 +1,4 @@
-"""Keyword research and grouping engine for Swedish SEM campaigns."""
+"""Keyword research and grouping engine for Swedish + English SEM campaigns."""
 
 from __future__ import annotations
 
@@ -7,8 +7,10 @@ import logging
 import re
 from collections import defaultdict
 from pathlib import Path
+from typing import Literal
 
 from src.models.campaign import Keyword
+from src.models.catalog import Product
 from src.models.client import ClientProfile
 from src.utils.config import PROJECT_ROOT
 from src.utils.swedish_nlp import split_compound_word, generate_diacritics_variants
@@ -327,3 +329,104 @@ def generate_negative_keywords(
     result = sorted(negatives)
     logger.info("Generated %d negative keywords for industry '%s'", len(result), industry)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Catalog-driven keyword templating (C9)
+# ---------------------------------------------------------------------------
+
+
+MatchType = Literal["BROAD", "PHRASE", "EXACT"]
+
+_KEYWORD_PLACEHOLDER_RE = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def _resolve_placeholder(name: str, product: Product) -> str | None:
+    if name == "name":
+        return product.name
+    if name == "sku":
+        return product.sku
+    val = product.attributes.get(name)
+    if val is None:
+        return None
+    return str(val)
+
+
+# Google Ads keyword text rules: letters, digits, whitespace, and a narrow
+# punctuation allowlist. Anything else is stripped (with surrounding whitespace
+# collapsed) so a destination name like "West Palm Beach (Florida)" still
+# produces a valid keyword "West Palm Beach Florida".
+#
+# Comma is explicitly NOT in the allowed list — Google rejects keywords like
+# "flights to Paris, France" as having invalid characters. Period and slash
+# are also rejected. The empirically-safe allowlist is: hyphen, ampersand,
+# apostrophe, plus.
+_KEYWORD_ALLOWED_PUNCT = "-&'+"
+_KEYWORD_DISALLOWED_RE = re.compile(
+    r"[^\w\s" + re.escape(_KEYWORD_ALLOWED_PUNCT) + r"]",
+    flags=re.UNICODE,
+)
+
+
+def sanitize_keyword_text(text: str) -> str:
+    """Strip characters Google Ads does not accept in keyword text.
+
+    Disallowed by Google: parentheses, brackets, `*`, `!`, `?`, `/`, `\\`,
+    `:`, `;`, `@`, `#`, `$`, etc. Allowed: letters / digits / whitespace plus
+    `- + & ' . ,`. We replace each disallowed char with a space then collapse
+    whitespace so the result remains a valid multi-word keyword.
+    """
+    out = _KEYWORD_DISALLOWED_RE.sub(" ", text)
+    out = re.sub(r"\s+", " ", out).strip()
+    return out
+
+
+def render_keyword_template(template: str, product: Product) -> str | None:
+    """Render a single keyword template for one product.
+
+    Returns None if any required placeholder is missing (skipped rather than
+    rendered with an empty string — empty keywords pollute the structure).
+    """
+    parts: list[str] = []
+    last = 0
+    for match in _KEYWORD_PLACEHOLDER_RE.finditer(template):
+        parts.append(template[last:match.start()])
+        val = _resolve_placeholder(match.group(1), product)
+        if val is None or val == "":
+            return None
+        parts.append(val)
+        last = match.end()
+    parts.append(template[last:])
+    text = "".join(parts).strip()
+    # Collapse whitespace
+    text = re.sub(r"\s+", " ", text)
+    # Sanitize disallowed characters (parentheses, brackets, etc.)
+    text = sanitize_keyword_text(text)
+    return text or None
+
+
+def generate_keywords_for_product(
+    product: Product,
+    templates: list[str],
+    match_types: list[MatchType] | None = None,
+) -> list[Keyword]:
+    """Expand `templates` against `product` and produce one Keyword per template × match_type."""
+    match_types = match_types or ["PHRASE"]
+    out: list[Keyword] = []
+    seen: set[tuple[str, str]] = set()
+    for template in templates:
+        text = render_keyword_template(template, product)
+        if not text:
+            continue
+        # Google Ads enforces a 80-char keyword limit
+        if len(text) > 80:
+            logger.warning("Skipping keyword > 80 chars: %r", text)
+            continue
+        for mt in match_types:
+            key = (text.lower(), mt)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(Keyword(text=text, match_type=mt))
+    return out
+

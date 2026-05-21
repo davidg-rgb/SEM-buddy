@@ -121,9 +121,11 @@ def _dict_to_credentials(data: dict) -> Credentials:
     expiry: datetime | None = None
     if data.get("expiry"):
         expiry = datetime.fromisoformat(data["expiry"])
-        # Ensure timezone-aware — google-auth uses UTC-aware datetimes
-        if expiry.tzinfo is None:
-            expiry = expiry.replace(tzinfo=timezone.utc)
+        # google.oauth2.credentials.Credentials.expiry is naive UTC by convention.
+        # Its .expired check compares against _helpers.utcnow() which is naive,
+        # so a tz-aware value here triggers TypeError on comparison.
+        if expiry.tzinfo is not None:
+            expiry = expiry.astimezone(timezone.utc).replace(tzinfo=None)
 
     return Credentials(
         token=data.get("token"),

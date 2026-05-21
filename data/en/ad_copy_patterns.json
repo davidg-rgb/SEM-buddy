@@ -1,0 +1,220 @@
+{
+  "pattern_pack_version": 4.1,
+  "language_mode": "english_generic",
+  "vertical": "travel_ota",
+  "notes": "v4.1 (2026-05-21): six review-driven fixes against the v4 reviewer-agent QA sample. (1) Orphan first-name truncations on long-name destinations are now prevented by the resolver's head-token surfacing step ('Fernando De Noronha' → 'Noronha', 'Bandar Seri Begawan' → 'Begawan'); _fill_pattern also computes pattern-aware name budgets so the resolver gets a tight, accurate budget per pattern. (2) The PKC source-transcription error ('Petropavlovsk-Kamchats, Russian Federation' → 'Petropavlovsk-Kamchatsky') is fixed via cleaner diff. (3) 'Cheap Flights to {name}' banned phrase is filtered in both keyword-fallback paths AND in _fill_pattern's post-render guard. (4) Triple-Trustpilot collision: dropped 'Trustpilot rated 4.5★' (headline_patterns) and '4.5★ Trustpilot reviews' (tail_headlines) — kept the pinned '4.5★ on Trustpilot'. (6) Fares-update triplet: dropped 'Fares update every hour' (headline_patterns + cta_pinned) and 'Fares updated hourly' (tail_headlines) — kept the destination-anchored '{name} fares update hourly'. v4 baseline: NO SKU/IATA codes in customer-facing copy — operator constraint. All long-name fallbacks use name-shortening (paren-strip, comma-segment, particle-strip, head-token), never {sku}. discount_led variant carries the MANDATORY 'Save up to {discount_pct}% to {name}' headline pattern (force-injected with fit-aware fallback chain that requires every word of the resolved name to survive). price_led carries the MANDATORY 'Get a great deal on flights to {name} from ${from_price}' description. Every ad group with from_price known must surface ${from_price} in at least one headline or description. Banned/misleading phrases from v2/v3 ('Top-rated travel agent', 'ATOL-style protection', 'Was full price, now -X%', 'Today only: X% off', 'Final seats', 'Last-minute', 'Cheap {name} flights', 'Member, IATA accredited', 'Price Drop Alerts Free', any ' - ' sentence-pause hyphen, any {sku}-substituted customer copy) are removed.",
+  "pinning_strategy": {
+    "headline_1": "brand - Pin company name (Flightnetwork)",
+    "headline_2": "destination - Pin {name} or '{name} Flights' for relevance",
+    "headline_3": "variant_cta - Pin a CTA matched to the variant's lever",
+    "headline_4": "pattern_interrupt - Promote variant.pattern_interrupt_h4 to position 4 to break OTA parity",
+    "max_pins": 3,
+    "notes": "Headlines 4-15 stay unpinned so Google rotates the strongest combinations, but each variant suggests a pattern_interrupt_h4 the generator can elevate. Compliance > algorithm; cap pinning at 3 unless brand mandates more."
+  },
+  "variants": {
+    "price_led": {
+      "lever_stack": ["specificity", "friction_removal"],
+      "description": "Anchors on the from-price. First-three-words doctrine: number / destination / verb. Used as the default 'price-conscious shopper' angle.",
+      "pattern_interrupt_h4": [
+        {"pattern": "Pay the airline price", "max_chars": 30},
+        {"pattern": "Free 24h cancellation", "max_chars": 30}
+      ],
+      "headline_patterns": [
+        {"pattern": "{name} from ${from_price}", "type": "catalog", "max_chars": 30, "requires_from_price": true},
+        {"pattern": "Flights to {name} ${from_price}", "type": "catalog", "max_chars": 30, "requires_from_price": true},
+        {"pattern": "${from_price} flights to {name}", "type": "catalog", "max_chars": 30, "requires_from_price": true},
+        {"pattern": "{name} fares from ${from_price}", "type": "catalog", "max_chars": 30, "requires_from_price": true},
+        {"pattern": "Compare {name} fares", "type": "catalog", "max_chars": 30},
+        {"pattern": "Book {name} from ${from_price}", "type": "catalog", "max_chars": 30, "requires_from_price": true},
+        {"pattern": "No hidden fees, ever", "type": "trust", "max_chars": 30},
+        {"pattern": "Free price-drop alerts", "type": "trust", "max_chars": 30},
+        {"pattern": "24/7 booking, real prices", "type": "trust", "max_chars": 30}
+      ],
+      "description_patterns": [
+        {"pattern": "Get a great deal on flights to {name} with prices from ${from_price}.", "type": "catalog", "max_chars": 90, "requires_from_price": true, "mandatory_when_priced": true},
+        {"pattern": "{name} from ${from_price}. Lock the lowest fare in 60s.", "type": "catalog", "max_chars": 90, "requires_from_price": true},
+        {"pattern": "Real-time {name} fares from ${from_price}. Free 24h cancellation.", "type": "catalog", "max_chars": 90, "requires_from_price": true},
+        {"pattern": "Lock {name} from ${from_price}. Compare 800+ airlines side by side.", "type": "catalog", "max_chars": 90, "requires_from_price": true},
+        {"pattern": "Compare 800+ airlines for {name}. Pay the airline price, no markup.", "type": "catalog", "max_chars": 90}
+      ],
+      "cta_pinned": [
+        {"pattern": "Lock in 60 seconds", "max_chars": 30},
+        {"pattern": "Compare 800+ airlines", "max_chars": 30},
+        {"pattern": "See live flight prices", "max_chars": 30}
+      ],
+      "tail_headlines": [
+        {"pattern": "Lowest fare today", "max_chars": 30},
+        {"pattern": "Real-time price compare", "max_chars": 30}
+      ]
+    },
+    "discount_led": {
+      "lever_stack": ["loss_aversion", "specificity", "scarcity"],
+      "description": "REQUIRED variant for products with discount_pct >= 0.15. Must surface the % in at least one headline AND the canonical 'Save up to {pct}% to {name}' shape (force-injected by the generator with a fit-aware fallback chain when the literal pattern overflows 30 chars).",
+      "requires_discount": true,
+      "pattern_interrupt_h4": [
+        {"pattern": "Pay the airline price", "max_chars": 30},
+        {"pattern": "Free 24h cancellation", "max_chars": 30}
+      ],
+      "headline_patterns": [
+        {"pattern": "Save up to {discount_pct}% to {name}", "type": "catalog", "max_chars": 30, "mandatory": true},
+        {"pattern": "{discount_pct}% off {name} flights", "type": "catalog", "max_chars": 30},
+        {"pattern": "Save {discount_pct}% on {name}", "type": "catalog", "max_chars": 30},
+        {"pattern": "{name}: save {discount_pct}%", "type": "catalog", "max_chars": 30},
+        {"pattern": "{name} -{discount_pct}%", "type": "catalog", "max_chars": 30},
+        {"pattern": "{discount_pct}% off, ${from_price}+", "type": "catalog", "max_chars": 30, "requires_from_price": true},
+        {"pattern": "Cut {discount_pct}% off {name}", "type": "catalog", "max_chars": 30},
+        {"pattern": "{name} sale: -{discount_pct}%", "type": "catalog", "max_chars": 30},
+        {"pattern": "Save up to {discount_pct}% today", "type": "catalog", "max_chars": 30}
+      ],
+      "description_patterns": [
+        {"pattern": "Save up to {discount_pct}% on flights to {name} from ${from_price}. Compare 800+ airlines.", "type": "catalog", "max_chars": 90, "requires_from_price": true},
+        {"pattern": "Save {discount_pct}% on {name} from ${from_price}. Compare 800+ airlines.", "type": "catalog", "max_chars": 90, "requires_from_price": true},
+        {"pattern": "{discount_pct}% off {name} this week. Lock in ${from_price}+ today.", "type": "catalog", "max_chars": 90, "requires_from_price": true},
+        {"pattern": "Save {discount_pct}% on {name} when you book direct. Free 24h cancel.", "type": "catalog", "max_chars": 90},
+        {"pattern": "Flightnetwork {name} sale: -{discount_pct}%. Compare 800+ airlines.", "type": "catalog", "max_chars": 90}
+      ],
+      "cta_pinned": [
+        {"pattern": "Claim {discount_pct}% off now", "max_chars": 30},
+        {"pattern": "Save {discount_pct}% on flights", "max_chars": 30},
+        {"pattern": "Book before sale ends", "max_chars": 30}
+      ],
+      "tail_headlines": [
+        {"pattern": "{discount_pct}% off this week", "max_chars": 30},
+        {"pattern": "Save ${was_minus_now}", "max_chars": 30, "requires_was_minus_now": true}
+      ]
+    },
+    "social_proof": {
+      "lever_stack": ["authority", "social_proof", "risk_reversal"],
+      "description": "Anchors on real trust signals: 4.5 star Trustpilot, 800+ airlines compared, 1.5M travelers/year, IATA-accredited. Wins on commercial-investigation intent.",
+      "pattern_interrupt_h4": [
+        {"pattern": "Pay the airline price", "max_chars": 30},
+        {"pattern": "Free 24h cancellation", "max_chars": 30}
+      ],
+      "headline_patterns": [
+        {"pattern": "Compare 800+ airlines", "type": "social_proof", "max_chars": 30},
+        {"pattern": "{name}, 800+ airlines", "type": "catalog", "max_chars": 30},
+        {"pattern": "1.5M travelers, every year", "type": "social_proof", "max_chars": 30},
+        {"pattern": "Price-match {name} fares", "type": "catalog", "max_chars": 30},
+        {"pattern": "4.5★ on Trustpilot", "type": "social_proof", "max_chars": 30},
+        {"pattern": "Real prices, no markup", "type": "trust", "max_chars": 30},
+        {"pattern": "IATA-accredited agent", "type": "trust", "max_chars": 30},
+        {"pattern": "24/7 customer support", "type": "trust", "max_chars": 30},
+        {"pattern": "Refund policy, no hassle", "type": "trust", "max_chars": 30}
+      ],
+      "description_patterns": [
+        {"pattern": "Flightnetwork compares 800+ airlines. {name} from ${from_price}.", "type": "catalog", "max_chars": 90, "requires_from_price": true},
+        {"pattern": "Price-match guarantee on {name}. 4.5★ Trustpilot, free 24h cancel.", "type": "catalog", "max_chars": 90},
+        {"pattern": "Trusted by 1.5M travelers. Compare every {name} fare in one search.", "type": "catalog", "max_chars": 90},
+        {"pattern": "IATA-accredited agent. {name} fares from ${from_price}, refund policy.", "type": "catalog", "max_chars": 90, "requires_from_price": true}
+      ],
+      "cta_pinned": [
+        {"pattern": "Compare 800+ airlines", "max_chars": 30},
+        {"pattern": "4.5★ on Trustpilot", "max_chars": 30},
+        {"pattern": "Book with confidence", "max_chars": 30}
+      ],
+      "tail_headlines": [
+        {"pattern": "Trusted by 1.5M travelers", "max_chars": 30},
+        {"pattern": "IATA-accredited since 2007", "max_chars": 30}
+      ]
+    },
+    "urgency": {
+      "lever_stack": ["scarcity", "specificity", "friction_removal"],
+      "description": "Real urgency only. The OTA-specific differentiator is live pricing — fares update every hour, real-time airline inventory. Fake-scarcity patterns (countdowns without deadlines, 'Final seats', 'Last-minute', 'sale ends this week') are removed.",
+      "pattern_interrupt_h4": [
+        {"pattern": "Pay the airline price", "max_chars": 30},
+        {"pattern": "Free 24h cancellation", "max_chars": 30}
+      ],
+      "headline_patterns": [
+        {"pattern": "Real-time airline inventory", "type": "urgency", "max_chars": 30},
+        {"pattern": "Today's lowest fare: ${from_price}", "type": "catalog", "max_chars": 30, "requires_from_price": true},
+        {"pattern": "Live airline pricing", "type": "urgency", "max_chars": 30},
+        {"pattern": "Today's {name} fare ${from_price}", "type": "catalog", "max_chars": 30, "requires_from_price": true},
+        {"pattern": "{name} fares update hourly", "type": "urgency", "max_chars": 30},
+        {"pattern": "Lock today's {name} price", "type": "catalog", "max_chars": 30},
+        {"pattern": "Book {name} in 60 seconds", "type": "friction_removal", "max_chars": 30}
+      ],
+      "description_patterns": [
+        {"pattern": "{name} fares update every hour. Free 24h cancellation.", "type": "catalog", "max_chars": 90},
+        {"pattern": "Today's lowest {name} fare: ${from_price}. Free 24h cancellation.", "type": "catalog", "max_chars": 90, "requires_from_price": true},
+        {"pattern": "Real-time inventory for {name}. Lock today's price now.", "type": "catalog", "max_chars": 90},
+        {"pattern": "{name} fares from ${from_price}, refreshed hourly. Pay airline price.", "type": "catalog", "max_chars": 90, "requires_from_price": true}
+      ],
+      "cta_pinned": [
+        {"pattern": "Lock today's price", "max_chars": 30},
+        {"pattern": "Book before fares climb", "max_chars": 30},
+        {"pattern": "Search live inventory", "max_chars": 30}
+      ],
+      "tail_headlines": [
+        {"pattern": "Inventory refreshes hourly", "max_chars": 30},
+        {"pattern": "Lock today's price", "max_chars": 30}
+      ]
+    },
+    "loss_aversion": {
+      "lever_stack": ["loss_aversion", "pain", "specificity"],
+      "description": "Anchors on the cost of paying the OTA markup. 'Pay the airline price, not the OTA markup.' The Flightnetwork-specific moat — used as the differentiator angle when competitor parity is the threat.",
+      "pattern_interrupt_h4": [
+        {"pattern": "Pay the airline price", "max_chars": 30},
+        {"pattern": "Free 24h cancellation", "max_chars": 30}
+      ],
+      "headline_patterns": [
+        {"pattern": "Stop overpaying for {name}", "type": "loss_aversion", "max_chars": 30},
+        {"pattern": "{name} prices rise weekly", "type": "loss_aversion", "max_chars": 30},
+        {"pattern": "Don't pay full {name} fare", "type": "loss_aversion", "max_chars": 30},
+        {"pattern": "Avoid fare hikes today", "type": "loss_aversion", "max_chars": 30},
+        {"pattern": "Book before {name} rises", "type": "loss_aversion", "max_chars": 30},
+        {"pattern": "Skip the OTA markup", "type": "loss_aversion", "max_chars": 30},
+        {"pattern": "{name} from ${from_price} only", "type": "catalog", "max_chars": 30, "requires_from_price": true},
+        {"pattern": "No hidden {name} fees", "type": "friction_removal", "max_chars": 30},
+        {"pattern": "Pay airline price, not OTA", "type": "loss_aversion", "max_chars": 30},
+        {"pattern": "Lowest {name} fare today", "type": "catalog", "max_chars": 30}
+      ],
+      "description_patterns": [
+        {"pattern": "Stop overpaying for {name}. Lock ${from_price} before fares rise.", "type": "catalog", "max_chars": 90, "requires_from_price": true},
+        {"pattern": "{name} fares from ${from_price}. Skip the OTA markup, book direct.", "type": "catalog", "max_chars": 90, "requires_from_price": true},
+        {"pattern": "Pay the airline price for {name}, not the OTA markup. Free 24h cancel.", "type": "catalog", "max_chars": 90},
+        {"pattern": "Don't pay full fare to {name}. Compare 800+ airlines, save the difference.", "type": "catalog", "max_chars": 90}
+      ],
+      "cta_pinned": [
+        {"pattern": "Pay the airline price", "max_chars": 30},
+        {"pattern": "Skip the OTA markup", "max_chars": 30},
+        {"pattern": "See real flight prices", "max_chars": 30}
+      ],
+      "tail_headlines": [
+        {"pattern": "Pay airline price, not OTA", "max_chars": 30},
+        {"pattern": "No hidden fees, ever", "max_chars": 30}
+      ]
+    }
+  },
+  "universal": {
+    "description": "Patterns any variant can pull from to top up headlines toward 15. Mostly brand, destination, and generic trust lines that don't carry a strong variant lever.",
+    "headline_patterns": [
+      {"pattern": "{Company}", "type": "brand", "max_chars": 30},
+      {"pattern": "{name}", "type": "destination", "max_chars": 30},
+      {"pattern": "{name} flights", "type": "destination", "max_chars": 30},
+      {"pattern": "Flights to {name}", "type": "destination", "max_chars": 30},
+      {"pattern": "Free 24h cancellation", "type": "trust", "max_chars": 30},
+      {"pattern": "Real-time price compare", "type": "trust", "max_chars": 30},
+      {"pattern": "Compare 800+ airlines", "type": "social_proof", "max_chars": 30},
+      {"pattern": "Pay the airline price", "type": "loss_aversion", "max_chars": 30}
+    ],
+    "description_patterns": [
+      {"pattern": "Search 800+ airlines for {name} in one click. Real prices, no hidden fees, 24/7 help.", "type": "general", "max_chars": 90},
+      {"pattern": "Find {name} fares from real airline inventory. Free 24h cancellation, secure payment.", "type": "general", "max_chars": 90}
+    ]
+  },
+  "long_name_fallback_patterns": {
+    "description": "Used when len(name) >= 18 chars, where the full destination name overflows the 30-char headline budget. v4: SKU/IATA NEVER appears in customer copy — patterns use the resolved short-form display name (paren-strip, comma-segment, particle-strip). The customer always sees the destination by name.",
+    "headline_patterns": [
+      {"pattern": "{name} from ${from_price}", "type": "catalog", "max_chars": 30, "long_name_fallback": true, "requires_from_price": true},
+      {"pattern": "{name} fares from ${from_price}", "type": "catalog", "max_chars": 30, "long_name_fallback": true, "requires_from_price": true},
+      {"pattern": "{name} -{discount_pct}%", "type": "catalog", "max_chars": 30, "long_name_fallback": true},
+      {"pattern": "Flights to {name}", "type": "catalog", "max_chars": 30, "long_name_fallback": true},
+      {"pattern": "{name} fares", "type": "catalog", "max_chars": 30, "long_name_fallback": true},
+      {"pattern": "{name} fares update hourly", "type": "urgency", "max_chars": 30, "long_name_fallback": true}
+    ],
+    "description_patterns": [
+      {"pattern": "{name} fares from ${from_price}. Compare 800+ airlines, free 24h cancellation.", "type": "catalog", "max_chars": 90, "long_name_fallback": true, "requires_from_price": true},
+      {"pattern": "Save {discount_pct}% on {name} flights. Real prices, 1.5M+ travelers/year.", "type": "catalog", "max_chars": 90, "long_name_fallback": true}
+    ]
+  }
+}

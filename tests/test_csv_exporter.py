@@ -31,6 +31,41 @@ class TestCSVExport:
         assert "Campaign Type" in header
         assert "Row Type" not in header
 
+    def test_campaign_csv_preserves_radius(self, tmp_output_dir: str):
+        """radius_km on GeoTarget must surface as a 'Location radius (km)' column."""
+        from src.models.campaign import (
+            Campaign, AdGroup, Keyword, ResponsiveSearchAd, AdHeadline, AdDescription, CampaignPlan,
+        )
+        from src.models.client import GeoTarget
+
+        plan = CampaignPlan(
+            campaigns=[
+                Campaign(
+                    name="Etraveli - Stockholm",
+                    budget_sek_daily=100.0,
+                    geo_targets=[GeoTarget(name="Stockholm", radius_km=50.0)],
+                    ad_groups=[
+                        AdGroup(
+                            name="ag",
+                            theme="flights",
+                            keywords=[Keyword(text="billiga flyg")],
+                            ads=[
+                                ResponsiveSearchAd(
+                                    headlines=[AdHeadline(text=f"h{i}") for i in range(3)],
+                                    descriptions=[AdDescription(text=f"description {i}") for i in range(2)],
+                                    final_url="https://etraveli.com",
+                                )
+                            ],
+                        )
+                    ],
+                )
+            ]
+        )
+        export_campaign_plan(plan, tmp_output_dir)
+        body = (Path(tmp_output_dir) / "01_campaigns.csv").read_text(encoding="utf-8-sig")
+        assert "Location radius (km)" in body
+        assert "Stockholm=50.0km" in body
+
     def test_keyword_csv_columns(self, sample_campaign_plan: CampaignPlan, tmp_output_dir: str):
         export_campaign_plan(sample_campaign_plan, tmp_output_dir)
         header = self._read_header(tmp_output_dir, "03_keywords.csv")

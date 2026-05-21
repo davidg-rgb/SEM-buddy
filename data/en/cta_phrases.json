@@ -1,0 +1,64 @@
+{
+  "contact": [
+    "Call us",
+    "Contact us",
+    "Get in touch",
+    "Schedule a call",
+    "Send a message"
+  ],
+  "quote": [
+    "Get a quote",
+    "Request a quote",
+    "Free quote",
+    "Free estimate",
+    "Get pricing"
+  ],
+  "book": [
+    "Book now",
+    "Book online",
+    "Reserve today",
+    "Schedule online",
+    "Book consultation"
+  ],
+  "buy": [
+    "Order today",
+    "Buy now",
+    "Shop online",
+    "Add to cart",
+    "Order here"
+  ],
+  "learn": [
+    "Learn more",
+    "Discover",
+    "See offers",
+    "Explore",
+    "See all"
+  ],
+  "urgency": [
+    "Limited time",
+    "Offer ends soon",
+    "Book before sold out",
+    "Last chance"
+  ],
+  "trust": [
+    "Certified",
+    "Trusted",
+    "Guaranteed",
+    "Verified",
+    "Satisfaction guaranteed"
+  ],
+  "value": [
+    "Free shipping",
+    "Fast delivery",
+    "Price guarantee",
+    "Best price",
+    "Save more"
+  ],
+  "travel": [
+    "Compare deals",
+    "Find cheap flights",
+    "Book secure",
+    "Save up to 60%",
+    "Lowest fares"
+  ]
+}

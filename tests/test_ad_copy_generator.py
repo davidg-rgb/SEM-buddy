@@ -150,3 +150,47 @@ class TestGenerateRSA:
         # Should contain Swedish characters since the theme and client have them
         has_swedish = any(c in all_text for c in "åäöÅÄÖ")
         assert has_swedish, f"No Swedish diacritics found in ad copy: {all_text}"
+
+
+class TestTargetGeoOverride:
+    """target_geo lets geo-structured campaigns produce per-geo adaptive copy."""
+
+    def test_headlines_use_target_geo_when_set(self, sample_client: ClientProfile, monkeypatch):
+        from src.models.client import GeoTarget
+
+        monkeypatch.setenv("SEM_DISABLE_LLM", "1")
+        # sample_client has Stockholm in its business name AND geographic_targets,
+        # which would mask the geo-override bug. Strip that and use Göteborg as override.
+        client = sample_client.model_copy(update={
+            "business_name": "Rörmokare Sverige AB",
+            "geographic_targets": [GeoTarget(name="Stockholm")],
+        })
+        target = GeoTarget(name="Göteborg", google_geo_id=2711533)
+        headlines = generate_headlines(
+            "rörmokare", client, ["rörmokare"], target_geo=target
+        )
+        texts = [h.text for h in headlines]
+        assert any("Göteborg" in t for t in texts), f"No Göteborg headline: {texts}"
+        # Now that brand doesn't contain "Stockholm", a leak must come from the geo path
+        assert not any("Stockholm" in t for t in texts), (
+            f"Headlines leaked Stockholm despite target_geo=Göteborg: {texts}"
+        )
+
+    def test_falls_back_to_client_geos_when_target_geo_none(self, sample_client: ClientProfile, monkeypatch):
+        monkeypatch.setenv("SEM_DISABLE_LLM", "1")
+        headlines = generate_headlines("rörmokare", sample_client, ["rörmokare"])
+        texts = [h.text for h in headlines]
+        assert any("Stockholm" in t for t in texts), (
+            f"Without target_geo, should use client's Stockholm: {texts}"
+        )
+
+    def test_fill_pattern_uses_target_geo(self, sample_client: ClientProfile):
+        from src.generators.ad_copy_generator import _fill_pattern
+        from src.models.client import GeoTarget
+
+        target = GeoTarget(name="Malmö")
+        result = _fill_pattern(
+            "{Tjänst} i {Stad}", sample_client, "rörmokare", [], target_geo=target,
+        )
+        assert "Malmö" in result
+        assert "Stockholm" not in result

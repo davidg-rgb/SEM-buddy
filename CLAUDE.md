@@ -12,13 +12,16 @@ src/
   templates/    - Campaign template save/load/adapt system
   audit/        - Live campaign fetch, structured diff comparator
   apis/         - Google Ads SDK client (official google-ads), DryRunGoogleAdsService
-  models/       - Pydantic v2 data models (client, campaign, competitor, research, account)
+  catalog/      - v0.3 catalog primitives (loader, validators, cleaners, URL templating, bid rules)
+  cases/        - v0.3 per-client orchestrator (case.yaml schema + runner)
+  models/       - Pydantic v2 data models (client, campaign, competitor, research, account, catalog)
   scrapers/     - Playwright + httpx scrapers (site crawler, GBP, reviews, social, transparency)
   analysis/     - Brand, site, and competitor analysis
   generators/   - Keyword expansion, ad copy, campaign builder, CSV exporter, reports
   utils/        - Config manager, Swedish NLP, PDF reader
 data/
   swedish/      - Stopwords, negative keywords, CTAs, ad patterns, industry seeds
+  en/           - English equivalents — ad patterns, CTAs, industry keywords, negatives
   templates/    - Google Ads Editor CSV schemas, report templates
 clients/        - Per-client working directories (runtime, gitignored)
 scripts/        - Validation scripts
@@ -52,6 +55,230 @@ sem pipeline run <client> [--from X --to Y] [--dry-run]  Full pipeline
 sem templates save|list|load|delete               Campaign templates
 sem audit run <client>                            Compare live vs recommended
 sem seo run <url> [--mode single|site] [--competitors url1,url2] [--client name] [--output markdown|pdf|xlsx] [--skip-lighthouse] [--dry-run]  SEO analysis
+sem catalog clean|accept-fixes|validate <client>  Inspect / clean catalog data
+sem case run <client> [--max-products N] [--no-validate]  Catalog → CSV pipeline (v0.3)
+sem case push <client> [--limit N] [--dry-run] [--auto-suffix] [--skip-lead-forms] [--yes]  Catalog → LIVE Google Ads API push
+```
+
+## Catalog engine (v0.3)
+
+The catalog engine turns an arbitrary product/destination catalog into a complete Google Ads campaign with per-row extensions, dynamic URLs, and rules-driven bidding.
+
+**Setup per client:**
+
+1. Drop source data (XLSX / CSV / JSON) into `clients/<slug>/`.
+2. Write `clients/<slug>/catalog.yaml` describing the sources, primary key, joins, and defaults.
+3. Write `clients/<slug>/case.yaml` describing structuring, URL templates, keyword templates, ad copy, extensions, and bid rules.
+4. (Optional) `sem catalog clean <slug>` → review `cleaning_diff.md` → `sem catalog accept-fixes <slug>`.
+5. `sem case run <slug>` produces ready-to-import Google Ads Editor CSVs in `clients/<slug>/exports/catalog/`.
+
+**Generated CSVs:** 01–07 (campaigns/ad groups/keywords/RSAs/negatives/sitelinks/callouts) plus 08_promotions, 09_lead_forms, and a documentation-only 10_bid_schedules.
+
+**Catalog primitives** live in `src/catalog/`:
+- `loader.py` — multi-source XLSX/CSV/JSON loader with join key support
+- `validators.py` — schema + IATA + required-column checks
+- `cleaners.py` — deterministic + optional LLM-assisted name normalization
+- `url_templating.py` — `{sku}`, `{name}`, `{attribute}`, `{N}` rotation
+- `bid_rules.py` — declarative first-match-wins rules with optional `during:` clause
+
+**Models:** `Product`, `CampaignBuildConfig`, `PromotionExtension`, `LeadFormExtension`, `BidSchedule`, plus `bid_modifier` / `max_cpc_sek` / `target_cpa_micros` fields on `AdGroup`.
+
+**Builder:** `src.generators.campaign_builder.build_campaigns_from_catalog(client, products, build_config, ...)` orchestrates the SKU build, applies bid rules, generates promotions + lead forms, and returns a complete `CampaignPlan`.
+
+**Scale:** 1,000-row catalog completes the full pipeline (load → validate → build → export) in ~2 seconds on a developer laptop. Test with `SEM_RUN_SCALE_TESTS=1 pytest tests/test_catalog_scale.py`.
+
+## Live API push (v0.3.1)
+
+`sem case push <slug>` mutates the campaign plan directly through the Google Ads API instead of exporting to CSV. Used for: account provisioning workflows, automated re-pushes, or skipping the manual "import via Editor" step.
+
+**Flags:**
+- `--limit N` — push only first N ad groups (smoke test)
+- `--dry-run` — walk the plan, report counts, make no API calls
+- `--auto-suffix` — append a timestamp to every entity name (re-runs without collisions)
+- `--skip-lead-forms` — Google requires a one-time manual ToS click in the Ads UI before lead-form assets can be created via API; this flag bypasses them
+- `--yes` — skip the confirmation prompt
+
+**What gets pushed:** CampaignBudget → Campaign (PAUSED) → CampaignCriteria (lang+geo) → AdGroups → Keywords → RSAs → Sitelinks → Callouts → LeadForms (best-effort) → PromotionAssets (linked to ad groups).
+
+**Gotchas baked into the code** (each is a regression test):
+- Campaign requires `contains_eu_political_advertising` (default DOES_NOT_CONTAIN)
+- Keyword text must be sanitized: commas, parens, slashes, etc. are illegal — `sanitize_keyword_text` strips them
+- Lead-form fields must follow Google's combinations (use FULL_NAME, not FIRST_NAME alone)
+- Lead-form `call_to_action_description` is required (defaults to `headline` if not set)
+- `PromotionAsset.percent_off` empirically uses `10,000 = 1%` scale (Google's docs say 1,000,000, which is wrong as of v23)
+- `promotion_target` is required, max 20 chars — defaults to the product/destination name trimmed
+- Campaigns are always created PAUSED on first push; the operator reviews and flips to ENABLED in the UI
+- Re-runs need `--auto-suffix` (or a manual `--name-suffix`) — Google rejects duplicate campaign names
+
+**Verification of the live push** (executed 2026-05-20 against `469-180-7001`):
+```
+sem case push etraveli --limit 3 --auto-suffix --skip-lead-forms --yes
+→ 1 budget + 1 campaign + 1 criterion + 3 ad groups + 30 keywords + 3 RSAs
+  + 11 assets (4 sitelinks + 4 callouts + 3 promotions) + 11 asset links
+```
+
+## Multi-variant RSAs + discount-driven bidding (v0.3.2)
+
+Each catalog ad group now ships 3–5 RSA variants instead of one. The variants
+are deterministically tagged by lever stack so Google's RSA optimizer has a
+real spread to test:
+
+| Variant | Lever stack | When |
+|---|---|---|
+| `price_led` | specificity + friction removal | Always |
+| `discount_led` | loss aversion + scarcity + specificity | Only if `discount_pct > 0` |
+| `social_proof` | authority + risk reversal | Always |
+| `urgency` | scarcity + friction removal | Always |
+| `loss_aversion` | pain + friction removal | Always |
+
+**Variant contract** (enforced by `tests/test_rsa_variants.py`):
+- Every product with `discount_pct >= 0.15` gets a `discount_led` RSA that mentions
+  the literal percent (e.g. "38%") in ≥1 headline and ≥1 description.
+- No two variants share the same headline list or pinned H3 CTA.
+- Each variant fills 15 headlines and 4 descriptions whenever the catalog
+  data supports it ("Excellent" Ad Strength target).
+- Banned phrases ("Top-rated travel agent", "ATOL-style protection",
+  "Was full price, now -X%", "Today only: X% off", "Final seats",
+  "Last-minute", "Cheap {name} flights") are stripped at the pattern layer.
+- `from_price=null` rows skip price-anchored patterns (`requires_from_price`
+  flag); no naked `$` ever ships.
+- Long-name (>= 18 char) destinations fall back to `long_name_fallback_patterns`
+  that use the IATA SKU instead of truncating mid-word.
+- IATA codes appear in customer-facing copy only when the SKU is in the
+  household-codes allowlist (~54 codes).
+- The `discount_led` variant caps `{discount_pct}` mentions at 5 of 15
+  headlines to avoid Google's semantic-similarity penalty.
+
+## Catalog v0.3.3 fixes (review-driven)
+
+The first end-to-end production run on the 964-destination etraveli catalog
+surfaced four ship-blocker bugs that have all been closed (see
+`.planning/review/CONSOLIDATED-REVIEW.md` for the full reviewer audit):
+
+1. **Null-safe price interpolation** — `_fill_pattern` no longer renders bare
+   `$` when `from_price` is missing; patterns flagged `requires_from_price`
+   are skipped instead.
+2. **Catalog SKU canonicalization** — `NY` → `NYC`, `LON-Heathrow` → `LHR`,
+   `Louisville`/`SDF` inversion fixed. The cleaning-proposal model gained a
+   `__sku__` diff type that renames primary keys with collision detection
+   (drops the source row when the target already exists).
+3. **IATA validator** — `validate_iata_skus()` in `src/catalog/validators.py`
+   warns on any non-IATA SKU at load time.
+4. **Banned-phrase patterns scrubbed** — v3 patterns.json removes 9 banned
+   phrases enumerated by the sem-ad-copy skill plus 3 FTC/ASA-risk anchors
+   ("Was full price", "Today only", "Final seats"). Long-name destinations
+   no longer ship "Avoid Petropavlovsk-Kamchats" — the new
+   `"Avoid fare hikes today"` is name-independent.
+
+**Where it lives:**
+- `src/generators/ad_copy_generator.py` — `generate_rsa_variants(product)`
+  + per-variant helpers `generate_headlines_for_variant` /
+  `generate_descriptions_for_variant`.
+- `src/generators/llm_ad_copy.py` — `generate_llm_ad_copy(..., variant_role=...)`
+  switches the LLM prompt to lead with the role's primary lever.
+- `data/en/ad_copy_patterns.json` — `variants` block with per-role pattern
+  pools plus a `universal` pool that any variant can draw from.
+
+**Discount-driven bid ladder** (drives ad-group-level `bid_modifier`):
+
+| Discount band | Modifier | etraveli destinations hit |
+|---|---|---|
+| 50%+ | 2.25× | 170 |
+| 40–49% | 2.00× | 173 |
+| 30–39% | 1.80× | 143 |
+| 25–29% | 1.60× | 86 |
+| 20–24% | 1.45× | 68 |
+| 15–19% | 1.30× | 88 |
+| 10–14% | 1.15× | 86 |
+| 5–9% | 1.05× | 77 |
+| sub-$100 fares (any discount) | 1.10× | 4 |
+| else | 1.00× (base) | 69 |
+
+Rules live in `clients/<slug>/case.yaml` `bid_rules:` and are first-match-wins,
+so they MUST be ordered largest-threshold first. The full 964-destination
+etraveli catalog is covered.
+
+**Smart bid strategy:** `case.yaml` now has a `campaign_goals:` block. With
+`goal_type: revenue` + `target_roas: 4.0` the campaign builder selects
+`TARGET_ROAS` / `MAXIMIZE_CONVERSION_VALUE` instead of the default
+`MAXIMIZE_CLICKS`. The live push creates the campaign PAUSED so the operator
+sets the ROAS target in the Ads UI before going ENABLED.
+
+**Scale verification (2026-05-20):**
+```
+SEM_DISABLE_LLM=1 sem case run etraveli
+→ 964 ad groups, 4,799 RSAs, 943 promotions, 1 lead form (in ~9 seconds)
+```
+
+## Catalog v0.3.4 — no-SKU customer copy + per-variant URLs
+
+Mid-session operator constraint plus three new contracts plus a reviewer-driven
+pattern pass. See `.planning/v0.3.4-NO-SKU-PER-VARIANT-URLS.md` for the full
+write-up and `scripts/audit_v034.py` for the live gate.
+
+**Hard rule:** customer-facing copy NEVER shows the IATA/SKU code. The
+resolver hierarchy is now `short_name` → paren-strip → comma-segment → both →
+particle-strip → head-token (new) → full name. `_should_use_iata_in_customer_copy`
+hard-codes to False; `IATA_HOUSEHOLD_CODES` is an empty shim.
+
+**Per-variant `text=N` URL rotation.** `generate_rsa_variants(...,
+final_url_template, text_n_range=(low, high))` renders the URL inside the
+variant loop — variant slot 0 → `text=low`, slot 1 → `low+1`, …, wrap on
+overflow. No two variants in the same ad group share the same `text=` value.
+
+**Mandatory canonical discount headline.** Every product with
+`discount_pct >= 0.15` gets a `Save up to {pct}% to {name}` headline,
+force-injected with a 7-step fit-aware fallback chain that walks down to
+`Save up to {pct}% today` when no name-bearing shape fits 30 chars. Multi-word
+names must survive `_fit_to_limit` intact — every word of the resolved name
+appears in the final headline (no orphans like `Save up to 46% to Fernando`).
+
+**`from_price` guarantee.** Every priced ad group surfaces the literal
+`$<price>` token in at least one headline or description. Enforced by a
+post-pass in `generate_rsa_variants` that force-injects the operator's example
+shape (`Get a great deal on flights to {name} with prices from $X`) into the
+`price_led` variant when no variant naturally surfaced it.
+
+**v0.3.4 fixes (review-driven, 2026-05-21):**
+
+1. **Orphan first-name truncations** — `_try_destination_head_token` surfaces
+   the destination's primary token from 3+ word names: `Fernando De Noronha`
+   → `Noronha`, `San Carlos De Bariloche` → `Bariloche`,
+   `Bandar Seri Begawan` → `Begawan` (via internal Romance-particle slicing
+   or last-word fallback). Plus `_fill_pattern` now computes pattern-aware
+   name budget (rendering all other tokens first, measuring residual) instead
+   of the chronic `max_chars - 4` under-allocation.
+2. **PKC source-transcription typo** — `Petropavlovsk-Kamchats, Russian
+   Federation` → `Petropavlovsk-Kamchatsky` via cleaner diff.
+3. **`Cheap Flights to {name}` banned phrase** — `_BANNED_HEADLINE_PREFIX_RE`
+   filters any line starting with `Cheap …` from both keyword-fallback paths
+   AND the `_fill_pattern` post-render guard. Keyword pool unchanged.
+4. **Trustpilot-collision triple** in `social_proof` text=3 — kept the pinned
+   `4.5★ on Trustpilot`, dropped `Trustpilot rated 4.5★` and `4.5★ Trustpilot
+   reviews` (replaced with `Real prices, no markup` and `Trusted by 1.5M
+   travelers`).
+5. **PKC pinned D1 lost from_price** — resolved transitively by 3.2 + the
+   new name budget; D1 now ships `Petropavlovsk-Kamchatsky fares from $224.
+   Compare 800+ airlines, free 24h cancellation`.
+6. **Fares-update collision triple** in `urgency` text=4 — kept
+   destination-anchored `{name} fares update hourly`, dropped `Fares update
+   every hour` and `Fares updated hourly` (replaced with `Search live
+   inventory` and `Inventory refreshes hourly`).
+
+**Pattern pack version:** `data/en/ad_copy_patterns.json` is now v4.1.
+
+**Audit + spell-check gates** (all return 0 failures on the 963-destination
+etraveli catalog):
+```
+python -m scripts.audit_v034         # Missions 2/3/4a/4b
+python -m scripts.spell_check_rsas   # 0 flagged tokens, 0 occurrences
+python -m scripts.stratified_rsa_sample  # writes QA-SAMPLE-v034.md
+```
+
+**Scale verification (2026-05-21):**
+```
+SEM_DISABLE_LLM=1 sem case run etraveli
+→ 963 ad groups, 4,580 RSAs, 943 promotions, 1 lead form (in ~13 seconds)
 ```
 
 ## Authentication
@@ -97,7 +324,7 @@ Google Ads now uses OAuth 2.0 — no direct API key fields in `.env`:
 
 - **Google Ads OAuth**: Managed via `sem auth login` (credentials stored in OS keyring)
 - **Developer token**: Set via `sem config set developer_token YOUR_TOKEN` (or `GOOGLE_ADS_DEVELOPER_TOKEN` in `.env`)
-- **ANTHROPIC_API_KEY**: Required for ad copy generation (set in `.env`)
+- **Ad copy generation**: Routes through the local `claude` CLI (Claude Code OAuth session) via subprocess — no Anthropic API key required. Falls back to deterministic Swedish templates if `claude` is not on PATH. Set `SEM_DISABLE_LLM=1` in `.env` to force template-only behavior.
 - **SPYFU_API_KEY**: Optional, for competitor intelligence (set in `.env`)
 - **VALUESERP_API_KEY**: Optional, for SERP data (set in `.env`)
 

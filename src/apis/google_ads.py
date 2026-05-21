@@ -38,30 +38,46 @@ def _wrap_google_ads_error(exc: Exception) -> GoogleAdsApiError | QuotaExceededE
 
         if isinstance(exc, GoogleAdsException):
             failure = exc.failure  # GoogleAdsFailure proto
-            # Check first error for RESOURCE_EXHAUSTED / quota errors
             if failure and failure.errors:
                 first_error = failure.errors[0]
-                # Error code is a proto message; check its name-based attr
                 error_code_detail = first_error.error_code
-                if hasattr(error_code_detail, "quota_error") and str(
-                    error_code_detail.quota_error
-                ) not in ("", "UNSPECIFIED", "UNKNOWN"):
+
+                # The error_code proto is a `oneof` — only the actively-set
+                # variant has a meaningful value. Use WhichOneof to find it
+                # rather than reading every sub-field (which all default to 0
+                # / UNSPECIFIED but read as such inconsistently).
+                active_field: str | None = None
+                if hasattr(error_code_detail, "WhichOneof"):
+                    try:
+                        active_field = error_code_detail.WhichOneof("error_code")
+                    except Exception:
+                        active_field = None
+
+                if active_field == "quota_error":
                     return QuotaExceededError()
-                # Auth errors
-                if hasattr(error_code_detail, "authentication_error") and str(
-                    error_code_detail.authentication_error
-                ) not in ("", "UNSPECIFIED", "UNKNOWN"):
+                if active_field == "authentication_error":
                     hint = "Run 'sem auth login' to re-authenticate with Google Ads."
                     return GoogleAdsApiError(str(exc), hint=hint, failure=failure)
-                # Authorization errors
-                if hasattr(error_code_detail, "authorization_error") and str(
-                    error_code_detail.authorization_error
-                ) not in ("", "UNSPECIFIED", "UNKNOWN"):
+                if active_field == "authorization_error":
                     hint = (
                         "Check that your Google account has access to this customer ID. "
                         "Verify via 'sem accounts list'."
                     )
                     return GoogleAdsApiError(str(exc), hint=hint, failure=failure)
+                # Field validation errors surface the failing path so callers
+                # can fix the request shape (e.g. missing required field).
+                if active_field in ("field_error", "request_error"):
+                    msg = first_error.message
+                    path = ".".join(
+                        e.field_name
+                        for e in (first_error.location.field_path_elements or [])
+                    )
+                    detail = f"{msg} (field={path})" if path else msg
+                    return GoogleAdsApiError(
+                        detail,
+                        hint="Inspect the failing field path and fix the request.",
+                        failure=failure,
+                    )
             hint = "Check the Google Ads API documentation for details."
             return GoogleAdsApiError(str(exc), hint=hint, failure=failure)
     except ImportError:
@@ -672,20 +688,139 @@ class DryRunGoogleAdsService(GoogleAdsService):
 
 
 def get_ads_service(customer_id: str, dry_run: bool = False) -> GoogleAdsService:
-    """Return a GoogleAdsService or DryRunGoogleAdsService based on dry_run flag.
-
-    Args:
-        customer_id: Google Ads customer ID.
-        dry_run: When True, returns DryRunGoogleAdsService which requires no
-            credentials. When False (default), returns GoogleAdsService which
-            requires valid OAuth tokens.
-
-    Returns:
-        GoogleAdsService or DryRunGoogleAdsService instance.
-
-    Raises:
-        AuthError: If dry_run=False and no stored tokens are available.
-    """
+    """Return a GoogleAdsService or DryRunGoogleAdsService based on dry_run flag."""
     if dry_run:
         return DryRunGoogleAdsService(customer_id)
     return GoogleAdsService(customer_id)
+
+
+# ---------------------------------------------------------------------------
+# Customer / account provisioning (C12 + C13)
+# ---------------------------------------------------------------------------
+
+
+def _normalize_customer_id(raw: str) -> str:
+    return raw.replace("-", "").strip()
+
+
+def _format_customer_id(numeric_id: str | int) -> str:
+    """Insert hyphens into a numeric customer ID: 4691807001 → 469-180-7001."""
+    s = str(numeric_id).replace("-", "")
+    if len(s) != 10 or not s.isdigit():
+        return str(numeric_id)
+    return f"{s[:3]}-{s[3:6]}-{s[6:]}"
+
+
+def create_customer_client(
+    mcc_id: str,
+    descriptive_name: str,
+    *,
+    currency_code: str = "SEK",
+    time_zone: str = "Europe/Stockholm",
+) -> str:
+    """Create a new ad account under the configured MCC.
+
+    Returns the new customer ID in XXX-XXX-XXXX format. Wraps the
+    `CustomerService.create_customer_client` RPC.
+
+    Raises:
+        GoogleAdsApiError: On API failures (auth, quota, name conflict).
+    """
+    try:
+        from src.auth.google_ads_auth import get_google_ads_client
+    except Exception as exc:  # pragma: no cover - defensive
+        raise GoogleAdsApiError(
+            f"Failed to import google-ads auth helper: {exc}",
+            hint="Run `pip install -e .[dev]` to install google-ads.",
+        ) from exc
+
+    clean_mcc = _normalize_customer_id(mcc_id)
+    try:
+        client = get_google_ads_client()
+        customer_service = client.get_service("CustomerService")
+        new_customer = client.get_type("Customer")
+        new_customer.descriptive_name = descriptive_name
+        new_customer.currency_code = currency_code
+        new_customer.time_zone = time_zone
+        response = customer_service.create_customer_client(
+            customer_id=clean_mcc,
+            customer_client=new_customer,
+        )
+        # response.resource_name is "customers/{numeric_id}"
+        resource = response.resource_name
+        numeric = resource.rsplit("/", 1)[-1]
+        formatted = _format_customer_id(numeric)
+        logger.info(
+            "Created customer client '%s' under MCC %s -> %s",
+            descriptive_name, mcc_id, formatted,
+        )
+        return formatted
+    except (GoogleAdsApiError, QuotaExceededError):
+        raise
+    except Exception as exc:
+        raise _wrap_google_ads_error(exc) from exc
+
+
+def invite_admin(
+    customer_id: str,
+    email: str,
+    *,
+    access_role: str = "ADMIN",
+) -> str:
+    """Invite an email address to a customer with the given access role.
+
+    `access_role` must be one of ADMIN, STANDARD, READ_ONLY, EMAIL_ONLY.
+    Returns the invitation resource name on success.
+
+    Raises:
+        GoogleAdsApiError: On API failures.
+        ValueError: If `access_role` is invalid.
+    """
+    allowed_roles = {"ADMIN", "STANDARD", "READ_ONLY", "EMAIL_ONLY"}
+    if access_role.upper() not in allowed_roles:
+        raise ValueError(
+            f"Invalid access_role {access_role!r}; must be one of {sorted(allowed_roles)}"
+        )
+
+    try:
+        from src.auth.google_ads_auth import get_google_ads_client
+    except Exception as exc:  # pragma: no cover - defensive
+        raise GoogleAdsApiError(
+            f"Failed to import google-ads auth helper: {exc}",
+        ) from exc
+
+    clean_id = _normalize_customer_id(customer_id)
+    try:
+        client = get_google_ads_client(customer_id=clean_id)
+        invitation_service = client.get_service("CustomerUserAccessInvitationService")
+        op = client.get_type("CustomerUserAccessInvitationOperation")
+        invitation = op.create
+        invitation.email_address = email
+        # Role is a proto enum on the request type. The string-based field
+        # name on newer SDKs is `access_role`.
+        AccessRoleEnum = client.get_type("AccessRoleEnum")
+        invitation.access_role = getattr(AccessRoleEnum.AccessRole, access_role.upper())
+        response = invitation_service.mutate_customer_user_access_invitation(
+            customer_id=clean_id,
+            operation=op,
+        )
+        resource_name = response.result.resource_name
+        logger.info(
+            "Invited %s as %s to %s -> %s", email, access_role, customer_id, resource_name,
+        )
+        return resource_name
+    except (GoogleAdsApiError, QuotaExceededError):
+        raise
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise _wrap_google_ads_error(exc) from exc
+
+
+__all__ = [
+    "GoogleAdsService",
+    "DryRunGoogleAdsService",
+    "get_ads_service",
+    "create_customer_client",
+    "invite_admin",
+]

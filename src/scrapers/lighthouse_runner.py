@@ -39,8 +39,9 @@ async def run_lighthouse(
     tmp.close()
 
     cat_arg = ",".join(categories)
+    lighthouse_bin = shutil.which("lighthouse") or "lighthouse"
     cmd = [
-        "lighthouse", url,
+        lighthouse_bin, url,
         f"--output=json",
         f"--output-path={tmp_path}",
         f"--only-categories={cat_arg}",

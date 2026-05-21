@@ -28,7 +28,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "api_keys": {
         "spyfu": None,
         "valueserp": None,
-        "anthropic": None,
     },
 }
 

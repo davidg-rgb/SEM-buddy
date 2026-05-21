@@ -1,0 +1,57 @@
+{
+  "jobs": [
+    "jobs",
+    "careers",
+    "vacancies",
+    "salary",
+    "hiring",
+    "internship",
+    "cv",
+    "resume",
+    "linkedin"
+  ],
+  "diy": [
+    "diy",
+    "do it yourself",
+    "how to",
+    "guide",
+    "tutorial",
+    "step by step",
+    "tips",
+    "advice"
+  ],
+  "free_seeker": [
+    "free",
+    "gratis",
+    "torrent",
+    "crack",
+    "pirated"
+  ],
+  "research": [
+    "wiki",
+    "wikipedia",
+    "definition",
+    "meaning",
+    "examples",
+    "history"
+  ],
+  "competitors_generic": [
+    "alternative",
+    "review",
+    "vs",
+    "comparison",
+    "best of",
+    "top 10"
+  ],
+  "travel_negatives": [
+    "stock photo",
+    "wallpaper",
+    "weather",
+    "news",
+    "wikitravel",
+    "tripadvisor forum",
+    "map",
+    "currency",
+    "time zone"
+  ]
+}

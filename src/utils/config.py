@@ -22,7 +22,6 @@ CLIENTS_DIR = PROJECT_ROOT / "clients"
 
 
 class Settings(BaseModel):
-    anthropic_api_key: str | None = None
     spyfu_api_key: str | None = None
     valueserp_api_key: str | None = None
 
@@ -30,7 +29,6 @@ class Settings(BaseModel):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings(
-        anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
         spyfu_api_key=os.getenv("SPYFU_API_KEY"),
         valueserp_api_key=os.getenv("VALUESERP_API_KEY"),
     )

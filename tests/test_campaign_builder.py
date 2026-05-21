@@ -55,6 +55,96 @@ class TestBuildCampaigns:
                 assert len(ag.negative_keywords) > 0
 
 
+class TestGeoStructuredCampaigns:
+    """Geo-structured path: each campaign owns its single geo, ads reflect it."""
+
+    @pytest.fixture
+    def multi_geo_client(self) -> ClientProfile:
+        return ClientProfile(
+            business_name="Etraveli",
+            website_url="https://etraveli.com",
+            industry="travel",
+            products_services=["flight booking"],  # 1 service → geo-structured path
+            geographic_targets=[
+                GeoTarget(name="Stockholm", google_geo_id=2724072, radius_km=50.0),
+                GeoTarget(name="Göteborg", google_geo_id=2711533, radius_km=40.0),
+                GeoTarget(name="Malmö", google_geo_id=2692969, radius_km=30.0),
+            ],
+            monthly_budget_sek=50000,
+        )
+
+    def test_one_campaign_per_geo(self, multi_geo_client: ClientProfile):
+        keyword_groups = {"flights": [{"text": "billiga flyg"}]}
+        plan = build_campaigns(multi_geo_client, keyword_groups)
+        assert len(plan.campaigns) == 3
+        names = {c.name for c in plan.campaigns}
+        assert "Etraveli - Stockholm" in names
+        assert "Etraveli - Göteborg" in names
+        assert "Etraveli - Malmö" in names
+
+    def test_each_campaign_targets_only_its_geo(self, multi_geo_client: ClientProfile):
+        """Regression test for the geo_targets overwrite bug.
+
+        Before the fix, every campaign in geo-structured mode received ALL
+        client.geographic_targets, defeating the per-location strategy.
+        """
+        keyword_groups = {"flights": [{"text": "billiga flyg"}]}
+        plan = build_campaigns(multi_geo_client, keyword_groups)
+        for campaign in plan.campaigns:
+            assert len(campaign.geo_targets) == 1, (
+                f"Campaign '{campaign.name}' has {len(campaign.geo_targets)} geo_targets, "
+                f"expected exactly 1 (geo-structured)"
+            )
+            # Campaign name ends with the geo name
+            assert campaign.name.endswith(campaign.geo_targets[0].name)
+
+    def test_radius_preserved_through_pipeline(self, multi_geo_client: ClientProfile):
+        keyword_groups = {"flights": [{"text": "billiga flyg"}]}
+        plan = build_campaigns(multi_geo_client, keyword_groups)
+        stockholm_campaign = next(c for c in plan.campaigns if "Stockholm" in c.name)
+        assert stockholm_campaign.geo_targets[0].radius_km == 50.0
+
+    def test_each_campaign_has_geo_specific_headlines(self, multi_geo_client: ClientProfile, monkeypatch):
+        """Regression test for the ad-copy geo bug.
+
+        Before the fix, every geo-structured campaign generated headlines
+        using client.geographic_targets[0] — so the Göteborg campaign
+        produced "Stockholm" headlines.
+        """
+        monkeypatch.setenv("SEM_DISABLE_LLM", "1")
+        keyword_groups = {"flights": [{"text": "billiga flyg"}]}
+        plan = build_campaigns(multi_geo_client, keyword_groups)
+
+        for campaign in plan.campaigns:
+            geo_name = campaign.geo_targets[0].name
+            headlines = [h.text for h in campaign.ad_groups[0].ads[0].headlines]
+            # Every campaign should include at least one headline mentioning its own geo
+            assert any(geo_name in h for h in headlines), (
+                f"Campaign '{campaign.name}' has no headline mentioning {geo_name}. "
+                f"Headlines: {headlines}"
+            )
+            # And no headline should mention the OTHER geos (cross-contamination)
+            other_geos = [g.name for g in multi_geo_client.geographic_targets if g.name != geo_name]
+            for other in other_geos:
+                assert not any(other in h for h in headlines), (
+                    f"Campaign '{campaign.name}' contains headline mentioning {other}: "
+                    f"{headlines}"
+                )
+
+    def test_service_structured_campaigns_inherit_all_geos(self, sample_client: ClientProfile):
+        """Service-structured path (the non-geo branch) still merges the full geo list.
+
+        sample_client has only 1 geo + multiple services → service-structured.
+        """
+        keyword_groups = {
+            "rörmokare": [{"text": "rörmokare"}],
+            "vvs_jour": [{"text": "vvs"}],
+        }
+        plan = build_campaigns(sample_client, keyword_groups)
+        for campaign in plan.campaigns:
+            assert campaign.geo_targets == sample_client.geographic_targets
+
+
 class TestAllocateBudget:
     def test_budget_sums_to_daily(self):
         campaigns = [

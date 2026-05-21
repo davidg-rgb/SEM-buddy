@@ -69,6 +69,9 @@ def create_app() -> typer.Typer:
     # SEO analysis
     from src.cli.seo_commands import seo_app
 
+    # Catalog / case orchestrator (v0.3)
+    from src.cli.case_commands import case_app, catalog_app
+
     app.add_typer(config_app, name="config", help="View and modify global configuration.")
     app.add_typer(accounts_app, name="accounts", help="Manage client accounts.")
     app.add_typer(auth_app, name="auth", help="OAuth authentication and token management.")
@@ -86,6 +89,9 @@ def create_app() -> typer.Typer:
     app.add_typer(template_app, name="templates", help="Save and reuse campaign templates.")
     app.add_typer(audit_app, name="audit", help="Compare live campaigns against recommendations.")
     app.add_typer(seo_app, name="seo", help="SEO-analys — on-page och teknisk SEO.")
+
+    app.add_typer(case_app, name="case", help="Run the full catalog → CSV pipeline for a client.")
+    app.add_typer(catalog_app, name="catalog", help="Inspect, validate, and clean catalog data.")
 
     return app
 

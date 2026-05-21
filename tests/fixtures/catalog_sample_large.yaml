@@ -1,0 +1,30 @@
+schema_version: 1
+primary_key: sku
+name_column: name
+required_columns: [sku, name]
+sources:
+  - type: xlsx
+    path: catalog_sample_large.xlsx
+    sheet: Destinations
+    columns:
+      name: "Destination name"
+      sku: "Destination code"
+  - type: xlsx
+    path: catalog_sample_large.xlsx
+    sheet: "From Prices"
+    join_key:
+      source_column: "Destination code"
+      target_column: sku
+    columns:
+      from_price: "From price"
+  - type: xlsx
+    path: catalog_sample_large.xlsx
+    sheet: Discounts
+    join_key:
+      source_column: "Destination code"
+      target_column: sku
+    columns:
+      discount_pct: "Discount"
+defaults:
+  from_price: null
+  discount_pct: 0.0

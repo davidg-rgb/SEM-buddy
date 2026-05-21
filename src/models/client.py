@@ -37,5 +37,5 @@ class ClientProfile(BaseModel):
     brand_voice: str = ""
     known_competitors: list[str] = []
     depth_level: Literal[1, 2, 3, 4] = 2
-    language: str = "sv"
+    language: Literal["sv", "en"] = "sv"
     google_ads_customer_id: str | None = None  # format XXX-XXX-XXXX

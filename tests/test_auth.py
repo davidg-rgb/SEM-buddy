@@ -280,8 +280,11 @@ class TestCredentials:
 
         assert loaded is not None
         assert loaded.expiry is not None
-        assert loaded.expiry.tzinfo is not None  # must be timezone-aware
-        assert loaded.expiry.replace(microsecond=0) == expiry.replace(microsecond=0)
+        # google.oauth2.credentials.Credentials.expiry is naive UTC by convention —
+        # its .expired check compares against _helpers.utcnow() which is naive.
+        assert loaded.expiry.tzinfo is None
+        naive_expiry = expiry.astimezone(timezone.utc).replace(tzinfo=None)
+        assert loaded.expiry.replace(microsecond=0) == naive_expiry.replace(microsecond=0)
 
 
 # ===========================================================================
