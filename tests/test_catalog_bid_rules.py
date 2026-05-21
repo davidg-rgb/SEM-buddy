@@ -92,6 +92,8 @@ def test_missing_attribute_does_not_match_or_crash() -> None:
 
 
 def test_during_clause_produces_bid_schedule() -> None:
+    """Outside the window: schedule still emitted (documentation), immediate
+    modifier stays neutral so a downstream rule (if any) can win."""
     rules = parse_rules([
         {
             "if": "discount_pct >= 25",
@@ -100,9 +102,12 @@ def test_during_clause_produces_bid_schedule() -> None:
         },
     ])
     p = _p(attributes={"discount_pct": 30})
-    result = apply_rules(p, rules, "Flightnetwork - All", "Bangkok (BKK)")
-    assert result.applied_rule_index == 0
-    # Immediate stays neutral when 'during' present
+    # Explicitly outside the window so the test is date-independent.
+    result = apply_rules(
+        p, rules, "Flightnetwork - All", "Bangkok (BKK)",
+        today=date(2026, 5, 1),
+    )
+    assert result.applied_rule_index is None  # no rule won immediate
     assert result.immediate_modifier == 1.0
     assert len(result.schedules) == 1
     sched = result.schedules[0]
@@ -111,6 +116,151 @@ def test_during_clause_produces_bid_schedule() -> None:
     assert sched.modifier == 2.0
     assert sched.reason == "Summer sale"
     assert sched.ad_group_name == "Bangkok (BKK)"
+
+
+def test_during_clause_fires_immediately_when_today_in_window() -> None:
+    """Inside the window: the during-rule wins first-match — same as if it
+    were a base rule — AND the schedule is still emitted for documentation."""
+    rules = parse_rules([
+        {
+            "if": "discount_pct >= 0.30",
+            "during": {"start": "2026-05-20", "end": "2026-08-31"},
+            "then": {"modifier": 2.5, "reason": "Summer sale — strong"},
+        },
+        {"if": "discount_pct >= 0.30", "then": {"modifier": 1.80, "reason": "Base"}},
+    ])
+    p = _p(attributes={"discount_pct": 0.35})
+    result = apply_rules(
+        p, rules, "Flightnetwork - All", "Bangkok (BKK)",
+        today=date(2026, 6, 15),  # inside the summer window
+    )
+    assert result.applied_rule_index == 0
+    assert result.immediate_modifier == 2.5
+    assert len(result.schedules) == 1
+    assert result.schedules[0].reason == "Summer sale — strong"
+
+
+def test_during_clause_falls_through_to_base_when_outside_window() -> None:
+    """Outside the window: overlay is skipped for the immediate decision,
+    and the base rule beneath it wins instead. Schedule still emitted."""
+    rules = parse_rules([
+        {
+            "if": "discount_pct >= 0.30",
+            "during": {"start": "2026-05-20", "end": "2026-08-31"},
+            "then": {"modifier": 2.5, "reason": "Summer overlay"},
+        },
+        {"if": "discount_pct >= 0.30", "then": {"modifier": 1.80, "reason": "Base"}},
+    ])
+    p = _p(attributes={"discount_pct": 0.35})
+    result = apply_rules(
+        p, rules, "Flightnetwork - All", "Bangkok (BKK)",
+        today=date(2026, 9, 15),  # AFTER summer
+    )
+    assert result.applied_rule_index == 1  # base rule won
+    assert result.immediate_modifier == 1.80
+    assert len(result.schedules) == 1  # overlay still documented
+    assert result.schedules[0].reason == "Summer overlay"
+
+
+def test_during_overlay_does_not_block_other_base_rule_for_lower_bands() -> None:
+    """A 12%-discount product should fall through both the >=30% overlay and
+    its base twin, landing on the base 15% rule (when one exists)."""
+    rules = parse_rules([
+        {
+            "if": "discount_pct >= 0.30",
+            "during": {"start": "2026-05-20", "end": "2026-08-31"},
+            "then": {"modifier": 2.5},
+        },
+        {"if": "discount_pct >= 0.30", "then": {"modifier": 1.80}},
+        {"if": "discount_pct >= 0.15", "then": {"modifier": 1.30}},
+        {"if": "discount_pct >= 0.10", "then": {"modifier": 1.15}},
+    ])
+    p = _p(attributes={"discount_pct": 0.12})
+    result = apply_rules(
+        p, rules, "C1", "AG1", today=date(2026, 6, 15),
+    )
+    assert result.applied_rule_index == 3
+    assert result.immediate_modifier == 1.15
+    assert result.schedules == []  # overlay's if didn't match this product
+
+
+def test_multiple_overlays_emit_all_schedules() -> None:
+    """A product crossing two DIFFERENT seasonality windows gets BOTH
+    documented; only the active one wins the immediate decision (if any)."""
+    rules = parse_rules([
+        {
+            "if": "discount_pct >= 0.50",
+            "during": {"start": "2026-05-20", "end": "2026-08-31"},
+            "then": {"modifier": 3.0, "reason": "Summer"},
+        },
+        {
+            "if": "discount_pct >= 0.50",
+            "during": {"start": "2026-11-20", "end": "2027-01-05"},
+            "then": {"modifier": 3.5, "reason": "Winter"},
+        },
+        {"if": "discount_pct >= 0.50", "then": {"modifier": 2.25, "reason": "Base"}},
+    ])
+    p = _p(attributes={"discount_pct": 0.55})
+    # Outside both windows — base wins immediate; both overlays documented.
+    result = apply_rules(
+        p, rules, "C1", "AG1", today=date(2026, 10, 1),
+    )
+    assert result.applied_rule_index == 2  # base rule
+    assert result.immediate_modifier == 2.25
+    assert {s.reason for s in result.schedules} == {"Summer", "Winter"}
+
+    # Inside summer — summer wins immediate; both overlays still documented.
+    result_summer = apply_rules(
+        p, rules, "C1", "AG1", today=date(2026, 6, 15),
+    )
+    assert result_summer.applied_rule_index == 0
+    assert result_summer.immediate_modifier == 3.0
+    assert {s.reason for s in result_summer.schedules} == {"Summer", "Winter"}
+
+
+def test_cascading_overlays_in_same_window_emit_only_first_match() -> None:
+    """Three cascading overlays in the SAME window (50%+ then 40-49% then
+    30-39%) where the if-conditions are cumulative (>= threshold) — a 55%
+    product should match ALL three but only emit the FIRST schedule (the
+    50%+ tier). Stops cascading schedules from polluting 10_bid_schedules.csv
+    with duplicates for the same product/window."""
+    same_window = {"start": "2026-05-20", "end": "2026-08-31"}
+    rules = parse_rules([
+        {
+            "if": "discount_pct >= 0.50",
+            "during": same_window,
+            "then": {"modifier": 3.00, "reason": "Summer 50%+"},
+        },
+        {
+            "if": "discount_pct >= 0.40",
+            "during": same_window,
+            "then": {"modifier": 2.75, "reason": "Summer 40-49%"},
+        },
+        {
+            "if": "discount_pct >= 0.30",
+            "during": same_window,
+            "then": {"modifier": 2.50, "reason": "Summer 30-39%"},
+        },
+        {"if": "discount_pct >= 0.30", "then": {"modifier": 1.80, "reason": "Base 30%+"}},
+    ])
+    # 55% discount — matches all three overlays' if conditions
+    p = _p(attributes={"discount_pct": 0.55})
+    result = apply_rules(
+        p, rules, "C1", "AG1", today=date(2026, 6, 15),  # active window
+    )
+    assert result.immediate_modifier == 3.00  # the 50%+ overlay won
+    # Only ONE schedule emitted (the first matching one in the window).
+    assert len(result.schedules) == 1
+    assert result.schedules[0].reason == "Summer 50%+"
+
+    # A 35% product (matches only the 30-39% overlay's if) gets that tier.
+    p_mid = _p(attributes={"discount_pct": 0.35})
+    result_mid = apply_rules(
+        p_mid, rules, "C1", "AG1", today=date(2026, 6, 15),
+    )
+    assert result_mid.immediate_modifier == 2.50
+    assert len(result_mid.schedules) == 1
+    assert result_mid.schedules[0].reason == "Summer 30-39%"
 
 
 def test_modifier_out_of_range_rejected() -> None:

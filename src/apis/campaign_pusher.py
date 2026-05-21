@@ -105,6 +105,44 @@ class PushReport:
         )
 
 
+@dataclass
+class BidUpdate:
+    """One intended ad-group bid update (built from today's bid_rules eval)."""
+
+    campaign_name: str
+    ad_group_name: str
+    modifier: float
+    new_cpc_micros: int
+
+
+@dataclass
+class BidApplyReport:
+    """Summary of an `apply_bids` run.
+
+    - `intended_updates` is what the bid-rules engine computed for TODAY
+       given the current `case.yaml` (one per ad group in the plan).
+    - `applied` is the subset that actually mutated live (intended ∩ live ads).
+    - `skipped` is the subset that had no live counterpart by name (typical
+       cause: pusher was run with a different `name_suffix`).
+    """
+
+    customer_id: str
+    intended_updates: list[BidUpdate] = field(default_factory=list)
+    applied: list[BidUpdate] = field(default_factory=list)
+    skipped: list[BidUpdate] = field(default_factory=list)
+    elapsed_seconds: float = 0.0
+    dry_run: bool = False
+
+    def summary(self) -> str:
+        mode = "DRY RUN" if self.dry_run else "applied"
+        return (
+            f"customer={self.customer_id} {mode}: "
+            f"intended={len(self.intended_updates)} "
+            f"applied={len(self.applied)} skipped={len(self.skipped)} "
+            f"elapsed={self.elapsed_seconds:.1f}s"
+        )
+
+
 # ---------------------------------------------------------------------------
 # Helpers — micros, batching, error wrapping
 # ---------------------------------------------------------------------------
@@ -279,6 +317,117 @@ class CampaignPusher:
 
         report.elapsed_seconds = time.perf_counter() - start
         logger.info("Push complete: %s", report.summary())
+        return report
+
+    # ------------------------------------------------------------------
+    # Seasonality: apply today's bid plan to an EXISTING live campaign
+    # ------------------------------------------------------------------
+
+    def apply_bids(
+        self,
+        plan: CampaignPlan,
+        *,
+        base_cpc_micros: int = 5_000_000,
+    ) -> "BidApplyReport":
+        """Apply today's bid_modifier plan to the LIVE campaign in-place.
+
+        Use case: a campaign was pushed weeks ago; today the SUMMER_SALE
+        window flipped open. Instead of creating a new campaign (`sem case
+        push --auto-suffix`), this command walks the live ad groups and
+        updates each one's `cpc_bid_micros` to `base_cpc_micros * modifier`.
+
+        Match strategy: by ad-group NAME. The pusher must have created the
+        campaign with the same names this plan uses — which it does, since
+        both flow from the same case.yaml. If `name_suffix` was used on
+        creation, pass the same suffix here so the lookup hits.
+
+        Returns a `BidApplyReport` listing which ad groups would be
+        updated, by how much. In `dry_run` mode no API calls are made.
+
+        Note on bid strategy compatibility: this updates `cpc_bid_micros`,
+        which Google Ads honours under MANUAL_CPC and MAXIMIZE_CLICKS.
+        Under Smart Bidding (TARGET_ROAS / MAXIMIZE_CONVERSION_VALUE), the
+        CPC is ignored and the same intent must be expressed via
+        `ad_group.effective_target_roas` overrides — see the docstring for
+        `apply_target_roas_overrides` (future work).
+        """
+        clean_id = _normalize_customer_id(self.customer_id)
+        report = BidApplyReport(customer_id=self.customer_id, dry_run=self.dry_run)
+        start = time.perf_counter()
+
+        for campaign in plan.campaigns:
+            campaign_name = self._unique_name(campaign.name)
+            for ag in campaign.ad_groups:
+                ag_name = self._unique_name(ag.name)
+                target_cpc = int(base_cpc_micros * ag.bid_modifier)
+                report.intended_updates.append(
+                    BidUpdate(
+                        campaign_name=campaign_name,
+                        ad_group_name=ag_name,
+                        modifier=ag.bid_modifier,
+                        new_cpc_micros=target_cpc,
+                    )
+                )
+
+        if self.dry_run:
+            report.elapsed_seconds = time.perf_counter() - start
+            return report
+
+        client = self._get_client()
+        ad_group_service = client.get_service("AdGroupService")
+        ga_service = client.get_service("GoogleAdsService")
+
+        # 1. Look up live ad-group resource names by name (one query per
+        # campaign — cheap, but batchable if scale grows).
+        rn_by_name: dict[str, str] = {}
+        for campaign in plan.campaigns:
+            campaign_name = self._unique_name(campaign.name)
+            # Escape single quotes for safety in the GAQL string literal.
+            escaped = campaign_name.replace("'", "\\'")
+            query = (
+                "SELECT ad_group.resource_name, ad_group.name "
+                "FROM ad_group "
+                f"WHERE campaign.name = '{escaped}'"
+            )
+            stream = ga_service.search_stream(customer_id=clean_id, query=query)
+            for batch in stream:
+                for row in batch.results:
+                    rn_by_name[row.ad_group.name] = row.ad_group.resource_name
+
+        # 2. Compose mutate operations, skipping ad groups not found.
+        ops = []
+        applied: list[BidUpdate] = []
+        for update in report.intended_updates:
+            rn = rn_by_name.get(update.ad_group_name)
+            if rn is None:
+                report.skipped.append(update)
+                continue
+            op = client.get_type("AdGroupOperation")
+            ag_proto = op.update
+            ag_proto.resource_name = rn
+            ag_proto.cpc_bid_micros = update.new_cpc_micros
+            # FieldMask: cpc_bid_micros only — leave everything else alone.
+            client.copy_from(
+                op.update_mask,
+                client.get_type("FieldMask")(paths=["cpc_bid_micros"]),
+            )
+            ops.append(op)
+            applied.append(update)
+
+        # 3. Batch and mutate.
+        if ops:
+            for chunk in _batched(ops, self.batch_size):
+                _safe_mutate(
+                    ad_group_service.mutate_ad_groups, clean_id, chunk,
+                    label="AdGroup (apply_bids)",
+                )
+        report.applied = applied
+        report.elapsed_seconds = time.perf_counter() - start
+        logger.info(
+            "apply_bids: %d intended, %d applied, %d skipped (no live match), %.1fs",
+            len(report.intended_updates), len(report.applied), len(report.skipped),
+            report.elapsed_seconds,
+        )
         return report
 
     # ------------------------------------------------------------------

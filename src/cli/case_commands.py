@@ -220,6 +220,137 @@ def case_push(
     )
 
 
+@case_app.command("apply-bids")
+def case_apply_bids(
+    slug: str = typer.Argument(..., help="Client slug (folder under clients/)"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run",
+        help="Report which ad-group cpc_bid_micros WOULD change; make no API calls.",
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip the confirmation prompt."),
+    name_suffix: str = typer.Option(
+        "",
+        "--name-suffix",
+        help=(
+            "Pass the same suffix that was used on the original `sem case push` "
+            "so the ad-group name lookup hits the live entities."
+        ),
+    ),
+    base_cpc_sek: float = typer.Option(
+        5.0,
+        "--base-cpc-sek",
+        help=(
+            "Base manual CPC (in SEK) that the bid_modifier multiplies. Default 5.00 SEK. "
+            "Each live ad group's cpc_bid_micros becomes base × modifier × 1e6."
+        ),
+    ),
+) -> None:
+    """Re-apply today's bid-rules plan to an already-pushed live campaign.
+
+    Computes `apply_rules(today=date.today())` for each product in the case,
+    then UPDATEs each existing ad group's `cpc_bid_micros` in place. Use this
+    when a `during:` seasonality window flips and you want the live campaign
+    to reflect the new modifiers WITHOUT re-pushing the entire structure.
+
+    Typical operator workflow:
+
+        # initial push (PAUSED)
+        sem case push etraveli --auto-suffix --skip-lead-forms --yes
+
+        # daily cron (or on-window-flip)
+        sem case apply-bids etraveli --name-suffix "[<same suffix>]" --yes
+    """
+    from src.accounts.manager import get_account
+    from src.apis.campaign_pusher import CampaignPusher
+    from src.cases.config import load_case_config
+    from src.cases.runner import _load_client_profile, _maybe_clean_catalog, _resolve_case_path
+    from src.generators.campaign_builder import (
+        build_campaigns_from_catalog,
+        catalog_row_to_product,
+    )
+    from src.catalog import load_catalog_from_yaml as _load_catalog
+
+    try:
+        account = get_account(slug)
+    except FileNotFoundError as exc:
+        rprint(f"[red]Error: {exc}[/red]")
+        raise typer.Exit(1)
+
+    try:
+        case_path = _resolve_case_path(slug)
+        case = load_case_config(case_path)
+        client = _load_client_profile(slug, case)
+        catalog = _load_catalog((case_path.parent / case.catalog).resolve())
+        catalog, _ = _maybe_clean_catalog(slug, catalog)
+        products = [catalog_row_to_product(row) for row in catalog]
+        plan = build_campaigns_from_catalog(
+            client, products, case.to_build_config(),
+            lead_form_config=(
+                case.extensions.lead_form.model_dump() if case.extensions.lead_form else None
+            ),
+            promotion_start_date=case.extensions.promotions.start_date,
+            promotion_end_date=case.extensions.promotions.end_date,
+            promotion_occasion=case.extensions.promotions.occasion,
+            money_currency=case.extensions.promotions.money_currency,
+        )
+    except Exception as exc:
+        rprint(f"[red]Plan build failed: {exc}[/red]")
+        raise typer.Exit(1)
+
+    preview = Table(title=f"Bid apply preview: {slug} -> {account.customer_id}")
+    preview.add_column("Modifier", justify="right")
+    preview.add_column("Ad groups", justify="right")
+    preview.add_column("Cpc micros", justify="right")
+    from collections import Counter
+    bands = Counter(
+        round(ag.bid_modifier, 2)
+        for c in plan.campaigns for ag in c.ad_groups
+    )
+    base_micros = int(base_cpc_sek * 1_000_000)
+    for modifier, count in sorted(bands.items()):
+        preview.add_row(
+            f"{modifier:.2f}×", str(count), f"{int(base_micros * modifier):,}",
+        )
+    if dry_run:
+        preview.add_row("[yellow]Mode[/yellow]", "[yellow]DRY RUN[/yellow]", "")
+    console.print(preview)
+
+    if not dry_run and not yes:
+        total_ag = sum(len(c.ad_groups) for c in plan.campaigns)
+        typer.confirm(
+            f"\nUpdate cpc_bid_micros on {total_ag} ad groups in live account "
+            f"{account.customer_id}?",
+            abort=True,
+        )
+
+    pusher = CampaignPusher(
+        customer_id=account.customer_id,
+        dry_run=dry_run,
+        name_suffix=name_suffix,
+    )
+    try:
+        report = pusher.apply_bids(plan, base_cpc_micros=base_micros)
+    except Exception as exc:
+        rprint(f"[red]apply_bids failed: {exc}[/red]")
+        raise typer.Exit(1)
+
+    result = Table(title=f"apply_bids result: {slug}", show_header=False)
+    result.add_column("Field", style="bold")
+    result.add_column("Value")
+    result.add_row("Intended updates", str(len(report.intended_updates)))
+    result.add_row("Applied", str(len(report.applied)))
+    result.add_row("Skipped (no live match)", str(len(report.skipped)))
+    result.add_row("Elapsed", f"{report.elapsed_seconds:.1f}s")
+    result.add_row("Mode", "DRY RUN" if report.dry_run else "LIVE")
+    console.print(result)
+    if report.skipped and not dry_run:
+        rprint(
+            f"\n[yellow]{len(report.skipped)} ad groups had no live counterpart by name.[/yellow]"
+            " Confirm `--name-suffix` matches the push that created them."
+        )
+    rprint("[green]Done.[/green]")
+
+
 @catalog_app.command("clean")
 def catalog_clean(
     slug: str = typer.Argument(..., help="Client slug"),

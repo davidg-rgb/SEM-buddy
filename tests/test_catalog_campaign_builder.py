@@ -107,6 +107,54 @@ def test_bid_rules_applied_per_ad_group(monkeypatch) -> None:
     assert nyc_ag.bid_modifier == 1.0
 
 
+def test_seasonality_overlay_fires_in_window_falls_back_out_of_window(monkeypatch) -> None:
+    """End-to-end check of the seasonality system the brief asks for.
+
+    Same case.yaml, same products — running the builder with `today` inside
+    the SUMMER_SALE window should boost the bid modifier on high-discount
+    ad groups; running with `today` after the window should drop them back
+    to the base ladder. The 10_bid_schedules.csv (plan.bid_schedules) stays
+    populated either way for documentation.
+    """
+    monkeypatch.setenv("SEM_DISABLE_LLM", "1")
+    products = _load_products()
+    cfg = _build_config()
+    # Replace the toy bid_rules from _build_config with a real overlay+base
+    # ladder so we can prove the active-window behavior.
+    cfg.bid_rules = [
+        {
+            "if": "discount_pct >= 0.30",
+            "during": {"start": "2026-05-20", "end": "2026-08-31"},
+            "then": {"modifier": 2.5, "reason": "SUMMER_SALE overlay 30%+"},
+        },
+        {"if": "discount_pct >= 0.30", "then": {"modifier": 1.5, "reason": "Base 30%+"}},
+        {"if": "discount_pct >= 0.15", "then": {"modifier": 1.25, "reason": "Base 15%+"}},
+    ]
+
+    # Inside the window — overlay fires; high-discount ad groups get 2.5×.
+    plan_in = build_campaigns_from_catalog(
+        _en_client(), products, cfg, today=date(2026, 6, 15),
+    )
+    wmi_in = next(ag for ag in plan_in.campaigns[0].ad_groups if ag.name.endswith("(WMI)"))
+    # WMI has discount=0.40 → matches the 30%+ overlay → 2.5×
+    assert wmi_in.bid_modifier == 2.5
+    # Schedule documented for WMI
+    wmi_schedules = [s for s in plan_in.bid_schedules if s.ad_group_name.endswith("(WMI)")]
+    assert len(wmi_schedules) == 1
+    assert wmi_schedules[0].reason == "SUMMER_SALE overlay 30%+"
+
+    # Outside the window — overlay drops out; same product gets base 1.5×.
+    # Schedule is STILL recorded for documentation.
+    plan_out = build_campaigns_from_catalog(
+        _en_client(), products, cfg, today=date(2026, 11, 15),
+    )
+    wmi_out = next(ag for ag in plan_out.campaigns[0].ad_groups if ag.name.endswith("(WMI)"))
+    assert wmi_out.bid_modifier == 1.5
+    wmi_schedules_out = [s for s in plan_out.bid_schedules if s.ad_group_name.endswith("(WMI)")]
+    assert len(wmi_schedules_out) == 1
+    assert wmi_schedules_out[0].reason == "SUMMER_SALE overlay 30%+"
+
+
 def test_promotion_extensions_emitted_for_discounted_products(monkeypatch) -> None:
     monkeypatch.setenv("SEM_DISABLE_LLM", "1")
     products = _load_products()

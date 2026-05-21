@@ -58,6 +58,7 @@ sem seo run <url> [--mode single|site] [--competitors url1,url2] [--client name]
 sem catalog clean|accept-fixes|validate <client>  Inspect / clean catalog data
 sem case run <client> [--max-products N] [--no-validate]  Catalog → CSV pipeline (v0.3)
 sem case push <client> [--limit N] [--dry-run] [--auto-suffix] [--skip-lead-forms] [--yes]  Catalog → LIVE Google Ads API push
+sem case apply-bids <client> [--dry-run] [--name-suffix S] [--base-cpc-sek X] [--yes]   Re-apply today's bid plan to an EXISTING live campaign (cron-pattern)
 ```
 
 ## Catalog engine (v0.3)
@@ -280,6 +281,86 @@ python -m scripts.stratified_rsa_sample  # writes QA-SAMPLE-v034.md
 SEM_DISABLE_LLM=1 sem case run etraveli
 → 963 ad groups, 4,580 RSAs, 943 promotions, 1 lead form (in ~13 seconds)
 ```
+
+## Seasonality bidding — temporary discount-pct overlays (v0.3.5)
+
+The operator brief asks for *"temporarily steer bidding based on the
+discount percentages, but also have overall target guidance and control."*
+The bid-rules engine answers with a two-layer system:
+
+**Layer 1 — Base ladder (always-on)**: 10-band discount-driven
+`bid_modifier` (50%+ → 2.25×, …, sub-$100 → 1.10×). First-match-wins.
+
+**Layer 2 — Seasonality overlays (time-windowed)**: rules with a `during:
+{start, end}` clause act as overrides while `today ∈ [start, end]`. Outside
+the window they're skipped for the immediate decision and Layer 1 fires
+underneath. Either way they emit a `BidSchedule` row in
+`10_bid_schedules.csv` so the operator can audit the full year's plan.
+
+Place overlays FIRST in `case.yaml::bid_rules:` — the engine evaluates in
+order, locks the first matching overlay (per window) for the immediate
+decision when active, then continues until a base rule wins for fallthrough
+cases.
+
+Example (matches etraveli's case.yaml — SUMMER_SALE window matches the
+promotion-extension `start_date` → `end_date`):
+
+```yaml
+bid_rules:
+  # Active 2026-05-20 → 2026-08-31. Overlays for 30%+/40%+/50%+ tiers.
+  - if: "discount_pct >= 0.50"
+    during: { start: 2026-05-20, end: 2026-08-31 }
+    then: { modifier: 3.00, reason: "SUMMER_SALE overlay — 50%+ tier" }
+  - if: "discount_pct >= 0.40"
+    during: { start: 2026-05-20, end: 2026-08-31 }
+    then: { modifier: 2.75, reason: "SUMMER_SALE overlay — 40-49% tier" }
+  - if: "discount_pct >= 0.30"
+    during: { start: 2026-05-20, end: 2026-08-31 }
+    then: { modifier: 2.50, reason: "SUMMER_SALE overlay — 30-39% tier" }
+  # Base ladder beneath.
+  - if: "discount_pct >= 0.50"
+    then: { modifier: 2.25 }
+  - if: "discount_pct >= 0.40"
+    then: { modifier: 2.00 }
+  # ... etc.
+```
+
+**Semantics covered by tests** (`tests/test_catalog_bid_rules.py`):
+- During-rule fires immediately when `today ∈ window`.
+- During-rule falls through to base when `today` is outside.
+- Same-window cascading rules (50%+ → 40%+ → 30%+) emit only the FIRST
+  matching schedule (so `10_bid_schedules.csv` shows one row per
+  product/window, not duplicates for cascading bands).
+- DIFFERENT windows (summer + winter) each emit their own schedule.
+
+**Live application via `sem case apply-bids <slug>`**: re-applies today's
+plan to an EXISTING campaign's ad groups via `AdGroupService.mutate` with
+a `cpc_bid_micros`-only FieldMask. Use as a daily cron after the initial
+push so window flips propagate without re-creating the campaign.
+
+```bash
+# Initial push (PAUSED, today's modifiers baked in)
+sem case push etraveli --auto-suffix --skip-lead-forms --yes
+
+# Daily refresh — adjusts cpc_bid_micros = base × today's_modifier
+sem case apply-bids etraveli --name-suffix "[<same suffix>]" --yes
+```
+
+Verification (today is 2026-05-21, inside SUMMER_SALE window):
+```
+Bid schedules:  486 (170 × 50%+ tier, 173 × 40-49%, 143 × 30-39%)
+Ad-group bid_modifier distribution in the live build:
+  3.00×: 170 (50%+ band — SUMMER overlay active)
+  2.75×: 173 (40-49% band — SUMMER overlay active)
+  2.50×: 143 (30-39% band — SUMMER overlay active)
+  1.60×:  86 (25-29% band — base ladder)
+  1.45×:  68 (20-24% band — base ladder)
+  1.30×:  88 (15-19% band — base ladder)
+  ... etc.
+```
+
+On 2026-09-01 the same `case.yaml` regenerates with the overlays dropped:
+50%+ → 2.25×, 40-49% → 2.00×, 30-39% → 1.80× (base ladder).
 
 ## Authentication
 

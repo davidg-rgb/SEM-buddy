@@ -466,6 +466,8 @@ def _build_ad_group_for_product(
     primary_url_template: str | None,
     parsed_rule_set,  # BidRuleSet | None — kept loose to dodge circular typing
     campaign_name: str,
+    *,
+    today: date | None = None,
 ) -> tuple[AdGroup, list[BidSchedule]]:
     """Build one AdGroup (with keywords, RSA, bid rules) for one product.
 
@@ -514,7 +516,9 @@ def _build_ad_group_for_product(
     immediate_modifier = 1.0
     schedules: list[BidSchedule] = []
     if parsed_rule_set is not None:
-        rule_result = apply_rules(product, parsed_rule_set, campaign_name, ag_name)
+        rule_result = apply_rules(
+            product, parsed_rule_set, campaign_name, ag_name, today=today,
+        )
         immediate_modifier = rule_result.immediate_modifier
         schedules = list(rule_result.schedules)
 
@@ -533,6 +537,8 @@ def _structure_by_sku(
     client: ClientProfile,
     products: Iterable[Product],
     build_config: CampaignBuildConfig,
+    *,
+    today: date | None = None,
 ) -> tuple[list[Campaign], list[BidSchedule]]:
     """Catalog-driven campaign structuring.
 
@@ -582,7 +588,7 @@ def _structure_by_sku(
         for product in bucket_products:
             ag, ag_schedules = _build_ad_group_for_product(
                 product, client, build_config, primary_url_template,
-                parsed_rule_set, campaign_name,
+                parsed_rule_set, campaign_name, today=today,
             )
             ad_groups.append(ag)
             all_schedules.extend(ag_schedules)
@@ -615,10 +621,20 @@ def build_campaigns_from_catalog(
     promotion_end_date: date | None = None,
     promotion_occasion: str | None = None,
     money_currency: str = "SEK",
+    today: date | None = None,
 ) -> CampaignPlan:
-    """End-to-end catalog build: structure → bid rules → promotions → lead forms → extensions."""
+    """End-to-end catalog build: structure → bid rules → promotions → lead forms → extensions.
+
+    `today` is forwarded to the bid-rules engine and determines whether any
+    `during:` overlay rules fire immediately or fall through to the base
+    ladder. Defaults to `date.today()` — production callers can leave this
+    unset; tests pass an explicit date to deterministically exercise the
+    in-window / out-of-window branches.
+    """
     products = list(products)
-    campaigns, bid_schedules = _structure_by_sku(client, products, build_config)
+    campaigns, bid_schedules = _structure_by_sku(
+        client, products, build_config, today=today,
+    )
 
     # Budget + bid strategy + schedule
     campaigns = _allocate_budget(campaigns, client.monthly_budget_sek)

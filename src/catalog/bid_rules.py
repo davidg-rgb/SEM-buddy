@@ -2,20 +2,32 @@
 
 Rules are first-match-wins, mirroring Google Ads behavior. Each rule has an
 `if` clause that's a simple comparison against product attributes, plus
-either an immediate `then.modifier` or a time-windowed `during` clause that
-generates a `BidSchedule`.
+either an immediate `then.modifier` or a time-windowed `during` clause.
+
+A `during` rule acts as a SEASONALITY OVERLAY:
+  - When `today ∈ [start, end]` the rule wins immediately exactly as if it
+    were a non-during rule, AND a `BidSchedule` is emitted for documentation.
+  - When `today` is outside the window the rule is skipped for the immediate
+    decision (next rule evaluated), but a `BidSchedule` is STILL emitted so
+    the operator/auditor can see the full year's plan.
+
+Place during-rules FIRST in the YAML to use them as overlays on top of a
+base ladder — outside the window they fall through cleanly to the base.
 
 Example YAML:
     bid_rules:
-      - if: discount_pct >= 30
-        then: { modifier: 1.5 }
-      - if: discount_pct >= 15
-        then: { modifier: 1.25 }
-      - if: from_price < 100
-        then: { modifier: 1.1 }
-      - if: discount_pct >= 25
-        during: { start: 2026-06-01, end: 2026-08-31 }
-        then: { modifier: 2.0, reason: "Summer sale" }
+      # Summer-sale overlay — overrides the base ladder while active.
+      - if: discount_pct >= 0.50
+        during: { start: 2026-05-20, end: 2026-08-31 }
+        then: { modifier: 3.0, reason: "Summer sale — top tier" }
+      - if: discount_pct >= 0.30
+        during: { start: 2026-05-20, end: 2026-08-31 }
+        then: { modifier: 2.5, reason: "Summer sale — strong discounts" }
+      # Base ladder — always-on.
+      - if: discount_pct >= 0.50
+        then: { modifier: 2.25 }
+      - if: discount_pct >= 0.30
+        then: { modifier: 1.80 }
 
 This is intentionally a tiny DSL — full arithmetic is YAGNI for v0.3
 (decided in §8 of the planning doc).
@@ -162,14 +174,43 @@ def apply_rules(
     rules: BidRuleSet,
     campaign_name: str,
     ad_group_name: str,
+    *,
+    today: date | None = None,
 ) -> BidApplicationResult:
-    """Evaluate rules against a product. First match wins.
+    """Evaluate rules against a product. First match wins for the IMMEDIATE
+    modifier; BidSchedules are collected for documentation.
 
-    Rules with a `during` clause emit a `BidSchedule` and the immediate
-    modifier stays at 1.0. Rules without `during` apply the modifier directly
-    to the ad group.
+    v0.3.5 seasonality semantics:
+
+    - Rules WITHOUT a `during:` clause fire normally when matched: the
+      modifier is applied immediately and rule evaluation stops.
+
+    - Rules WITH a `during:` clause act as SEASONALITY OVERLAYS:
+        * They ALWAYS emit a `BidSchedule` when their `if:` matches, so the
+          full year's plan is captured in `10_bid_schedules.csv` regardless
+          of when the build runs.
+        * They fire IMMEDIATELY (winning the first-match contest) only when
+          `today ∈ [start, end]`. Outside the window they are transparent —
+          the next matching rule wins for the immediate decision.
+
+    This means a YAML where overlays are placed FIRST behaves correctly both
+    inside and outside the sale window:
+        in-window  → overlay wins → boosted modifier applied
+        out-window → overlay skipped → base ladder applies normally
+
+    `today` defaults to `date.today()`. Tests pass an explicit date to
+    deterministically exercise either branch.
     """
+    if today is None:
+        today = date.today()
     result = BidApplicationResult()
+    immediate_locked = False
+    # Track which `during:` windows have already emitted a schedule for this
+    # product. Same-window cascading rules (e.g. summer/50%+, summer/40-49%,
+    # summer/30-39%) are first-match-wins per window — a 55% product only
+    # emits the 50%+ summer schedule, not all three. DIFFERENT windows
+    # (summer + winter) each get their own emission.
+    emitted_windows: set[tuple[date, date]] = set()
     for idx, rule in enumerate(rules.rules):
         try:
             parsed = parse_expression(rule.if_)
@@ -178,21 +219,38 @@ def apply_rules(
             continue
         if not parsed.evaluate(product):
             continue
-        # Match
-        result.applied_rule_index = idx
+        # The `if` matched. Branch on whether this is an overlay or a base
+        # rule.
         if rule.during is not None:
-            result.schedules.append(
-                BidSchedule(
-                    campaign_name=campaign_name,
-                    ad_group_name=ad_group_name,
-                    start_date=rule.during.start,
-                    end_date=rule.during.end,
-                    modifier=rule.then.modifier,
-                    reason=rule.then.reason,
+            window_key = (rule.during.start, rule.during.end)
+            if window_key not in emitted_windows:
+                # First rule to match for this window — record the schedule.
+                result.schedules.append(
+                    BidSchedule(
+                        campaign_name=campaign_name,
+                        ad_group_name=ad_group_name,
+                        start_date=rule.during.start,
+                        end_date=rule.during.end,
+                        modifier=rule.then.modifier,
+                        reason=rule.then.reason,
+                    )
                 )
-            )
-        else:
+                emitted_windows.add(window_key)
+                # If the window is active today AND no overlay has locked
+                # the immediate decision yet, this overlay wins first-match.
+                if not immediate_locked and rule.during.start <= today <= rule.during.end:
+                    result.immediate_modifier = rule.then.modifier
+                    result.applied_rule_index = idx
+                    immediate_locked = True
+            # Either way, keep scanning — a different window or a base rule
+            # may still need to fire.
+            continue
+        # Non-during rule. Wins first-match on the immediate side iff no
+        # active overlay already locked it. Either way, we stop scanning:
+        # the base ladder is mutually exclusive at the immediate level.
+        if not immediate_locked:
             result.immediate_modifier = rule.then.modifier
+            result.applied_rule_index = idx
         return result
     return result
 

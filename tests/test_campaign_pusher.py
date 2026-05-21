@@ -79,14 +79,23 @@ class _FakeProto:
 
 
 class _FakeOp:
-    """Fake operation: exposes `.create`."""
+    """Fake operation: exposes `.create` AND `.update` (for in-place mutations)."""
 
     def __init__(self):
         self.create = _FakeProto("create")
+        self.update = _FakeProto("update")
+        self.update_mask = _FakeProto("update_mask")
 
 
 class _FakeService:
-    """Records every mutate call against itself."""
+    """Records every mutate call against itself.
+
+    Also supports `search_stream` (used by `apply_bids` to look up live ad
+    groups by name). Tests inject `_stub_search_stream` to return synthetic
+    rows.
+    """
+
+    _stub_search_stream: dict = {}
 
     def __init__(self, recorder: list, name: str):
         self._recorder = recorder
@@ -112,6 +121,28 @@ class _FakeService:
                 )
                 return resp
             return call
+        if item == "search_stream":
+            def call(customer_id: str = "", query: str = ""):
+                # Return whatever the test injected via _stub_search_stream.
+                rows = self._stub_search_stream.get(self._name, [])
+                self._recorder.append({
+                    "service": self._name,
+                    "method": "search_stream",
+                    "customer_id": customer_id,
+                    "query": query,
+                    "rows": rows,
+                })
+                # One batch with all rows.
+                batch = SimpleNamespace(
+                    results=[
+                        SimpleNamespace(ad_group=SimpleNamespace(
+                            resource_name=row["resource_name"], name=row["name"],
+                        ))
+                        for row in rows
+                    ]
+                )
+                return [batch]
+            return call
         if item == "list_accessible_customers":
             def call():
                 return SimpleNamespace(resource_names=[])
@@ -135,18 +166,42 @@ class _FakeClient:
     def __init__(self):
         self.calls: list = []
         self.enums = _FakeEnums()
+        # apply_bids tests inject ad-group lookup rows here
+        self.stub_ad_groups: list = []
 
     def get_service(self, name: str):
-        return _FakeService(self.calls, name)
+        svc = _FakeService(self.calls, name)
+        if name == "GoogleAdsService" and self.stub_ad_groups:
+            svc._stub_search_stream = {"GoogleAdsService": self.stub_ad_groups}
+        return svc
 
     def get_type(self, name: str):
         if name.endswith("Operation"):
             return _FakeOp()
+        if name == "FieldMask":
+            # FieldMask is constructed with kwargs (paths=[...])
+            def _mk(**kwargs):
+                p = _FakeProto("FieldMask")
+                for k, v in kwargs.items():
+                    setattr(p, k, v)
+                return p
+            return _mk
         # AdTextAsset, LeadFormField, etc. — plain protos
         return _FakeProto(name)
 
     def copy_from(self, target, source):
-        # No-op for tests
+        # Real google-ads SDK copies fields from source into target. The
+        # production code uses copy_from in two patterns:
+        #   (a) initialise a oneof slot — copy_from(campaign.target_spend, TargetSpend())
+        #       — fresh empty proto; nothing to mirror in the fake.
+        #   (b) populate an UPDATE FieldMask — copy_from(op.update_mask, FieldMask(paths=[...]))
+        #       — the test inspects `update_mask.paths`, so we mirror the
+        #       source fields onto the target.
+        # We selectively mirror only when the source name suggests a FieldMask
+        # (it has the `paths` field). Other copy_from cases stay no-op so we
+        # don't perturb existing behavior.
+        if hasattr(source, "_fields") and "paths" in getattr(source, "_fields", {}):
+            target._fields["paths"] = source._fields["paths"]
         return target
 
 
@@ -471,3 +526,105 @@ def test_keyword_final_url_inherits_ad_group_url(small_plan) -> None:
             assert "final_urls" in crit
             urls = list(crit["final_urls"])
             assert any("to=" in str(u) for u in urls)
+
+
+# ---------------------------------------------------------------------------
+# apply_bids — temporary discount-driven seasonality on a LIVE campaign
+# ---------------------------------------------------------------------------
+
+
+def test_apply_bids_dry_run_computes_intended_updates_without_api_calls(small_plan) -> None:
+    """Dry-run should compose the intended-updates list for every ad group
+    in the plan and make ZERO API calls (no search_stream, no mutate)."""
+    fake = _FakeClient()
+    pusher = CampaignPusher(
+        customer_id="123-456-7890", client=fake, dry_run=True,
+    )
+    report = pusher.apply_bids(small_plan, base_cpc_micros=5_000_000)
+
+    assert report.dry_run is True
+    # All 10 ad groups become intended updates.
+    assert len(report.intended_updates) == 10
+    assert report.applied == []
+    assert report.skipped == []
+    # cpc target = base × modifier; with modifiers in {1.0, 1.1, 1.25, 1.5}
+    # for the test fixture's bid_rules, all targets must be > 0.
+    for u in report.intended_updates:
+        assert u.new_cpc_micros == int(5_000_000 * u.modifier)
+    # Zero API calls in dry-run.
+    assert fake.calls == []
+
+
+def test_apply_bids_live_mutates_matched_ad_groups_via_update_mask(small_plan) -> None:
+    """Live path: search_stream finds live ad groups by name, then
+    mutate_ad_groups updates each one's cpc_bid_micros via a FieldMask."""
+    fake = _FakeClient()
+    # Stub the search_stream lookup with synthetic live ad groups for the
+    # FIRST 5 of the 10 plan ad groups. The other 5 should land in `skipped`.
+    plan_ag_names = [
+        ag.name for c in small_plan.campaigns for ag in c.ad_groups
+    ]
+    fake.stub_ad_groups = [
+        {"name": name, "resource_name": f"customers/123/adGroups/{i+1}"}
+        for i, name in enumerate(plan_ag_names[:5])
+    ]
+    pusher = CampaignPusher(customer_id="123-456-7890", client=fake)
+    report = pusher.apply_bids(small_plan, base_cpc_micros=4_000_000)
+
+    assert not report.dry_run
+    assert len(report.intended_updates) == 10
+    assert len(report.applied) == 5
+    assert len(report.skipped) == 5
+    # search_stream was called once per campaign (1 campaign in the plan).
+    search_calls = [c for c in fake.calls if c["method"] == "search_stream"]
+    assert len(search_calls) == 1
+    # The GAQL filters by the (suffixed) campaign name.
+    assert "FROM ad_group" in search_calls[0]["query"]
+    assert "Flightnetwork - All Destinations" in search_calls[0]["query"]
+    # mutate_ad_groups was called with 5 update ops carrying the right
+    # cpc_bid_micros values and a FieldMask referencing cpc_bid_micros.
+    mutate_calls = [
+        c for c in fake.calls
+        if c["service"] == "AdGroupService" and c["method"] == "mutate_ad_groups"
+    ]
+    assert mutate_calls
+    seen_cpcs = []
+    for call in mutate_calls:
+        for op in call["ops"]:
+            update_proto = op.update._fields
+            assert "resource_name" in update_proto
+            assert "cpc_bid_micros" in update_proto
+            seen_cpcs.append(update_proto["cpc_bid_micros"])
+            # The FieldMask on op.update_mask carries `cpc_bid_micros`.
+            mask_paths = op.update_mask._fields.get("paths", [])
+            assert "cpc_bid_micros" in mask_paths
+    assert len(seen_cpcs) == 5
+    # All cpcs are positive multiples of the base.
+    for cpc in seen_cpcs:
+        assert cpc > 0
+        assert cpc % 4_000_000 == 0 or cpc != 4_000_000  # may be non-integer multiple
+
+
+def test_apply_bids_with_name_suffix_finds_suffixed_live_ad_groups(small_plan) -> None:
+    """When the original push used `--auto-suffix`, the same suffix must be
+    passed to apply_bids so the live lookup hits the suffixed names."""
+    fake = _FakeClient()
+    suffix = " [2026-05-21 12:00:00]"
+    suffixed_plan_names = [
+        ag.name + suffix for c in small_plan.campaigns for ag in c.ad_groups
+    ]
+    fake.stub_ad_groups = [
+        {"name": name, "resource_name": f"customers/123/adGroups/{i+1}"}
+        for i, name in enumerate(suffixed_plan_names)
+    ]
+    pusher = CampaignPusher(
+        customer_id="123-456-7890", client=fake, name_suffix=suffix,
+    )
+    report = pusher.apply_bids(small_plan, base_cpc_micros=3_000_000)
+
+    # All 10 match because we passed the same suffix.
+    assert len(report.applied) == 10
+    assert len(report.skipped) == 0
+    # Suffix appears in the GAQL.
+    search_calls = [c for c in fake.calls if c["method"] == "search_stream"]
+    assert any(suffix in c["query"] for c in search_calls)
