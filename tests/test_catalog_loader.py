@@ -185,3 +185,63 @@ def test_catalog_row_attributes_carry_join_data() -> None:
     pkc = next(r for r in catalog if r.key == "PKC")
     assert pkc.attributes["from_price"] == 380.0
     assert pkc.attributes["discount_pct"] == 0.0
+
+
+# v0.3.6 — alias harvesting on duplicate primary keys ----------------------
+
+
+def test_duplicate_primary_keys_collect_prior_names_into_aliases(tmp_path) -> None:
+    """The real etraveli source has 33 IATA codes appearing multiple times
+    under different names ('Bali' / 'Denpasar Bali' both → DPS). The loader
+    must keep the LAST row's data as canonical and accumulate every prior
+    name as an alias so keyword generation can broaden match coverage."""
+    src = tmp_path / "duplicates.json"
+    src.write_text(json.dumps([
+        {"sku": "DPS", "name": "Bali"},
+        {"sku": "DPS", "name": "Denpasar Bali"},
+        {"sku": "DPS", "name": "Bali Denpasar"},
+        {"sku": "RUN", "name": "St. Denis De La Reunion"},
+        {"sku": "RUN", "name": "Reunion"},
+        {"sku": "NCE", "name": "Nice"},  # no duplicates — empty aliases
+    ]), encoding="utf-8")
+    config = CatalogConfig(
+        primary_key="sku",
+        name_column="name",
+        sources=[SourceConfig(type="json", path=str(src))],
+    )
+    catalog = load_catalog(config)
+    by_sku = {r.key: r for r in catalog}
+    # DPS: canonical name is the LAST row ('Bali Denpasar'); aliases preserve
+    # the prior rows IN ORDER ('Bali' first, then 'Denpasar Bali').
+    dps = by_sku["DPS"]
+    assert dps.name == "Bali Denpasar"
+    assert dps.aliases == ["Bali", "Denpasar Bali"]
+    # RUN: 1 alias.
+    run = by_sku["RUN"]
+    assert run.name == "Reunion"
+    assert run.aliases == ["St. Denis De La Reunion"]
+    # NCE: never duplicated → empty alias list.
+    assert by_sku["NCE"].aliases == []
+
+
+def test_alias_dedup_against_canonical_name_and_each_other(tmp_path) -> None:
+    """Aliases that equal the canonical name (case-insensitive) or each
+    other should be deduplicated so we don't pollute downstream keyword
+    generation with repeats."""
+    src = tmp_path / "dup_aliases.json"
+    src.write_text(json.dumps([
+        {"sku": "NYC", "name": "New York City"},
+        {"sku": "NYC", "name": "New York"},
+        {"sku": "NYC", "name": "new york"},  # case-only dup of prior
+        {"sku": "NYC", "name": "NYC"},  # canonical match → dropped from aliases
+    ]), encoding="utf-8")
+    config = CatalogConfig(
+        primary_key="sku",
+        name_column="name",
+        sources=[SourceConfig(type="json", path=str(src))],
+    )
+    catalog = load_catalog(config)
+    nyc = next(r for r in catalog if r.key == "NYC")
+    assert nyc.name == "NYC"
+    # Only the unique non-canonical prior names survive.
+    assert nyc.aliases == ["New York City", "New York"]

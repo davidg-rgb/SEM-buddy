@@ -116,8 +116,18 @@ def load_catalog(config: CatalogConfig, base_dir: Path | None = None) -> Catalog
             f"'{pk}' after renaming. Map it via the source's `columns:` block."
         )
 
-    # 2. Build index by primary key for efficient join
+    # 2. Build index by primary key for efficient join.
+    #
+    # When two source rows share the same primary key but carry different
+    # names ('Bali' / 'Denpasar Bali' both → DPS), the last row's data wins
+    # for the canonical record AND every prior name is captured in
+    # `_aliases` so downstream consumers (keyword generation, in
+    # particular) can use the alternates as match-broadening variants.
+    # The canonical name = the LAST row's name (preserves backward
+    # compatibility with the prior "last wins" behavior).
+    name_col = config.name_column
     index: dict[Any, dict[str, Any]] = {}
+    alias_collector: dict[str, list[str]] = {}
     for row in primary_rows:
         key_val = row.get(pk)
         if key_val is None or key_val == "":
@@ -125,7 +135,15 @@ def load_catalog(config: CatalogConfig, base_dir: Path | None = None) -> Catalog
             continue
         key_str = str(key_val)
         if key_str in index:
-            logger.warning("Duplicate primary key %r in %s — last wins", key_str, primary_label)
+            # Capture the PRIOR row's name as an alias before overwriting.
+            prior_name = index[key_str].get(name_col) if name_col else None
+            if prior_name is not None and str(prior_name).strip():
+                alias_collector.setdefault(key_str, []).append(str(prior_name).strip())
+            logger.info(
+                "Duplicate primary key %r in %s — keeping last row's data, "
+                "previous name added to aliases",
+                key_str, primary_label,
+            )
         index[key_str] = dict(row)
 
     # 3. Join secondaries
@@ -168,7 +186,6 @@ def load_catalog(config: CatalogConfig, base_dir: Path | None = None) -> Catalog
         )
 
     # 4. Apply defaults + build CatalogRow list
-    name_col = config.name_column
     rows_out: list[CatalogRow] = []
     for key_str, attrs in index.items():
         # Apply defaults for any missing key
@@ -179,7 +196,24 @@ def load_catalog(config: CatalogConfig, base_dir: Path | None = None) -> Catalog
         if name_col and name_col in merged:
             raw_name = merged.pop(name_col)
             name_val = str(raw_name) if raw_name is not None else None
-        rows_out.append(CatalogRow(key=key_str, name=name_val, attributes=merged))
+        # De-dupe aliases against the canonical name + each other; preserve order.
+        raw_aliases = alias_collector.get(key_str, [])
+        seen: set[str] = set()
+        if name_val:
+            seen.add(name_val.lower())
+        deduped_aliases: list[str] = []
+        for a in raw_aliases:
+            key_a = a.lower()
+            if key_a in seen:
+                continue
+            seen.add(key_a)
+            deduped_aliases.append(a)
+        rows_out.append(CatalogRow(
+            key=key_str,
+            name=name_val,
+            aliases=deduped_aliases,
+            attributes=merged,
+        ))
 
     logger.info(
         "Loaded catalog: %d rows, %d sources, primary_key=%s",

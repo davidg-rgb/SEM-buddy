@@ -70,12 +70,19 @@ class CatalogRow(BaseModel):
     """One row of normalized catalog data.
 
     `key` is the value of the primary_key for this row (e.g. an IATA code).
-    `name` is the human-readable label (optional, derived from `name_column`).
+    `name` is the human-readable label (operator-preferred — the one that
+    appears in ad-group names and headlines).
+    `aliases` collects alternative names found in the source under the SAME
+    primary key. When the loader sees two rows with the same IATA code but
+    different names ('Bali' / 'Denpasar Bali' both at DPS), the operator-
+    preferred name wins for `name`, and the other names accumulate here so
+    downstream keyword generation can use them as match-broadening terms.
     `attributes` is everything else (price, discount, region, etc.).
     """
 
     key: str
     name: str | None = None
+    aliases: list[str] = Field(default_factory=list)
     attributes: dict[str, Any] = Field(default_factory=dict)
 
     def get(self, attr: str, default: Any = None) -> Any:
@@ -83,6 +90,8 @@ class CatalogRow(BaseModel):
             return self.key
         if attr == "name":
             return self.name
+        if attr == "aliases":
+            return self.aliases
         return self.attributes.get(attr, default)
 
 

@@ -410,23 +410,50 @@ def generate_keywords_for_product(
     templates: list[str],
     match_types: list[MatchType] | None = None,
 ) -> list[Keyword]:
-    """Expand `templates` against `product` and produce one Keyword per template × match_type."""
+    """Expand `templates` against `product` and produce one Keyword per template × match_type.
+
+    When the product carries `aliases` (alternate names harvested from
+    duplicate-primary-key source rows — e.g. 'Bali' / 'Denpasar Bali' /
+    'Bali Denpasar' all sharing IATA 'DPS'), each `{name}`-templated keyword
+    is also rendered against every alias so the ad group's match-coverage
+    spans every name the catalog had for the destination. Templates that
+    don't reference `{name}` (e.g. '{sku} flights') only render once per
+    product since the alias swap is name-only. Dedup is global across the
+    name + every alias.
+    """
     match_types = match_types or ["PHRASE"]
     out: list[Keyword] = []
     seen: set[tuple[str, str]] = set()
+
+    # Variants of the product to render against: the canonical record first,
+    # then a clone per alias (with name swapped). Limit to a reasonable cap
+    # to keep ad-group keyword counts from exploding for pathological
+    # catalogs — 5 alternates per destination covers every legitimate case
+    # in the etraveli dataset (NYC has 3, DFW has 3, the rest have 2).
+    variants: list[Product] = [product]
+    for alias in (product.aliases or [])[:5]:
+        alias_str = (alias or "").strip()
+        if not alias_str or alias_str.lower() == product.name.lower():
+            continue
+        variants.append(product.model_copy(update={"name": alias_str}))
+
     for template in templates:
-        text = render_keyword_template(template, product)
-        if not text:
-            continue
-        # Google Ads enforces a 80-char keyword limit
-        if len(text) > 80:
-            logger.warning("Skipping keyword > 80 chars: %r", text)
-            continue
-        for mt in match_types:
-            key = (text.lower(), mt)
-            if key in seen:
+        # Templates that don't reference {name} render identically across
+        # variants — skip the alias loop to avoid wasted dedup hits.
+        template_uses_name = "{name}" in template
+        applicable = variants if template_uses_name else variants[:1]
+        for p in applicable:
+            text = render_keyword_template(template, p)
+            if not text:
                 continue
-            seen.add(key)
-            out.append(Keyword(text=text, match_type=mt))
+            if len(text) > 80:
+                logger.warning("Skipping keyword > 80 chars: %r", text)
+                continue
+            for mt in match_types:
+                key = (text.lower(), mt)
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append(Keyword(text=text, match_type=mt))
     return out
 

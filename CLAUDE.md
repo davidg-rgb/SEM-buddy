@@ -282,6 +282,48 @@ SEM_DISABLE_LLM=1 sem case run etraveli
 → 963 ad groups, 4,580 RSAs, 943 promotions, 1 lead form (in ~13 seconds)
 ```
 
+## Alias harvesting — match-broadening for duplicate source rows (v0.3.6)
+
+The etraveli source has 33 IATA codes listed under multiple names (`Bali`
+/ `Denpasar Bali` / `Bali Denpasar` all at DPS; `Saigon` / `Ho Chi Minh
+City` both at SGN; `Rio` / `Rio De Janeiro` at RIO; `Dallas` / `Fort
+Worth` / `Ft Worth` at DFW; etc.). The loader's primary-key dedup
+collapses them to 964 unique ad groups — which is correct for ad-group
+structure (one IATA = one URL = one campaign entity).
+
+But the alternate names ARE valuable as **keyword variants**: someone
+searching `"Denpasar flights"` should still hit DPS, even though the
+ad-group's canonical name is `"Bali"`. The loader now harvests every
+prior name into `CatalogRow.aliases` (case-insensitively deduplicated
+against the canonical name + each other, preserving source order).
+`Product.aliases` carries this through. `generate_keywords_for_product`
+expands each `{name}`-templated keyword across every alias variant —
+templates without `{name}` (e.g. `{sku} flights`) render once per product.
+
+**Reconciliation of the 999 → 963 row count** (operator-facing):
+```
+999  source XLSX rows (excl. header — brief rounds to 1,000)
+-35  duplicate IATA codes collapsed (same destination, alt name = alias)
+  → 964 unique IATA codes
+ -1  NY → NYC collision merge in accepted_proposal.json
+  → 963 ad groups
+```
+Zero destinations are lost; every alternate name becomes a keyword
+variant on the right ad group.
+
+**Etraveli delta after enabling aliases**: 9,622 → 9,894 keywords (+272
+match-broadening variants). 33 ad groups gain expanded coverage: 30 with
++8 keywords each (one alias), 2 with +6 (alias + SKU/name dedup
+collision), 1 (DFW) with +16 keywords (two aliases — "Fort Worth" +
+"Ft Worth" beyond the canonical "Dallas").
+
+**Tests** (`tests/test_catalog_loader.py` + `tests/test_keyword_templating.py`):
+- Duplicate primary keys collect prior names into aliases (in order).
+- Aliases that case-match the canonical name dedupe at both load AND
+  keyword-generation time.
+- Templates without `{name}` don't multiply across aliases.
+- Products without aliases behave identically to the pre-v0.3.6 contract.
+
 ## Seasonality bidding — temporary discount-pct overlays (v0.3.5)
 
 The operator brief asks for *"temporarily steer bidding based on the

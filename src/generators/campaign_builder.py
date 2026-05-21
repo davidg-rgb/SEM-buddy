@@ -447,7 +447,8 @@ def _format_campaign_name(template: str, client: ClientProfile, **extra) -> str:
 def catalog_row_to_product(row, *, sku_field: str | None = None) -> Product:
     """Adapt a `CatalogRow` into a `Product`.
 
-    Carries the row's `key` as `sku`, `name` as `name`, and all remaining
+    Carries the row's `key` as `sku`, `name` as `name`, the row's harvested
+    `aliases` as the product's alternate-name list, and all remaining
     attributes through. The optional `sku_field` argument is reserved for
     callers that want to pull the SKU from a different attribute.
     """
@@ -456,7 +457,8 @@ def catalog_row_to_product(row, *, sku_field: str | None = None) -> Product:
     name = row.name or sku
     # Strip the primary-key column from attributes if it bled through
     attrs = {k: v for k, v in row.attributes.items() if k != sku_field}
-    return Product(sku=sku, name=name, attributes=attrs)
+    aliases = list(getattr(row, "aliases", []) or [])
+    return Product(sku=sku, name=name, aliases=aliases, attributes=attrs)
 
 
 def _build_ad_group_for_product(

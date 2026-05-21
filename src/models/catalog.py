@@ -17,6 +17,7 @@ class Product(BaseModel):
     sku: str  # IATA code for destinations; product ID for ecom; room ID for hotels
     name: str
     short_name: str | None = None  # Optional 18-char-max friendly fallback for long names
+    aliases: list[str] = Field(default_factory=list)  # alternative names harvested from duplicate-key source rows; used to broaden keyword match
     attributes: dict[str, Any] = Field(default_factory=dict)
     keywords: list[str] = Field(default_factory=list)
     url: HttpUrl | None = None  # post-template-expansion landing URL
@@ -27,6 +28,8 @@ class Product(BaseModel):
             return self.sku
         if attr == "name":
             return self.name
+        if attr == "aliases":
+            return self.aliases
         if attr == "url":
             return str(self.url) if self.url else None
         return self.attributes.get(attr, default)

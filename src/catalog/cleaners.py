@@ -216,7 +216,15 @@ def apply_proposal(catalog: Catalog, proposal: CleaningProposal) -> Catalog:
             )
             continue
         seen_new_keys.add(new_key)
-        new_rows.append(CatalogRow(key=new_key, name=new_name, attributes=new_attrs))
+        # Preserve aliases from the source row through the cleaning step. If
+        # the source had multiple names harvested under one primary key
+        # ('Bali'/'Denpasar Bali' both at DPS), those alternates must survive
+        # so keyword generation can broaden match coverage post-cleaning.
+        new_rows.append(CatalogRow(
+            key=new_key, name=new_name,
+            aliases=list(row.aliases or []),
+            attributes=new_attrs,
+        ))
 
     return Catalog(config=catalog.config, rows=new_rows)
 
