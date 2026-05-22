@@ -104,7 +104,16 @@ class _FakeService:
 
     def __getattr__(self, item):
         if item.startswith("mutate_"):
-            def call(customer_id: str, operations: list):
+            def call(request=None, customer_id: str = "", operations: list = None, **kwargs):
+                # Real SDK accepts either (customer_id, operations[, partial_failure]) as kwargs
+                # or a request dict. Mirror both.
+                if request is not None and isinstance(request, dict):
+                    customer_id = request.get("customer_id", customer_id)
+                    operations = request.get("operations", operations) or []
+                    partial_failure = request.get("partial_failure", False)
+                else:
+                    operations = operations or []
+                    partial_failure = kwargs.get("partial_failure", False)
                 ids = []
                 for _ in operations:
                     ids.append(f"customers/{customer_id}/{self._name}/{next(self._id_counter)}")
@@ -115,9 +124,11 @@ class _FakeService:
                     "count": len(operations),
                     "ops": operations,
                     "resource_names": ids,
+                    "partial_failure": partial_failure,
                 })
                 resp = SimpleNamespace(
-                    results=[SimpleNamespace(resource_name=rn) for rn in ids]
+                    results=[SimpleNamespace(resource_name=rn) for rn in ids],
+                    partial_failure_error=SimpleNamespace(code=0, message="", details=[]),
                 )
                 return resp
             return call
@@ -147,6 +158,24 @@ class _FakeService:
             def call():
                 return SimpleNamespace(resource_names=[])
             return call
+        if item == "search":
+            # Used by _build_resume_state to snapshot live entities.
+            # Tests inject rows via _stub_search keyed by query substring.
+            def call(customer_id: str = "", query: str = ""):
+                rows = []
+                for needle, row_list in getattr(self, "_stub_search", {}).items():
+                    if needle in query:
+                        rows = row_list
+                        break
+                self._recorder.append({
+                    "service": self._name,
+                    "method": "search",
+                    "customer_id": customer_id,
+                    "query": query,
+                    "row_count": len(rows),
+                })
+                return iter(rows)
+            return call
         raise AttributeError(item)
 
 
@@ -168,11 +197,16 @@ class _FakeClient:
         self.enums = _FakeEnums()
         # apply_bids tests inject ad-group lookup rows here
         self.stub_ad_groups: list = []
+        # Resume tests inject snapshot rows here keyed by query substring
+        # (e.g. {"FROM ad_group": [...], "FROM ad_group_criterion": [...]}).
+        self.stub_search_rows: dict[str, list] = {}
 
     def get_service(self, name: str):
         svc = _FakeService(self.calls, name)
         if name == "GoogleAdsService" and self.stub_ad_groups:
             svc._stub_search_stream = {"GoogleAdsService": self.stub_ad_groups}
+        if name == "GoogleAdsService" and self.stub_search_rows:
+            svc._stub_search = self.stub_search_rows
         return svc
 
     def get_type(self, name: str):
@@ -628,3 +662,174 @@ def test_apply_bids_with_name_suffix_finds_suffixed_live_ad_groups(small_plan) -
     # Suffix appears in the GAQL.
     search_calls = [c for c in fake.calls if c["method"] == "search_stream"]
     assert any(suffix in c["query"] for c in search_calls)
+
+
+# ---------------------------------------------------------------------------
+# Resume mode — multi-day push recovery after quota exhaustion
+# ---------------------------------------------------------------------------
+
+
+def _fake_ad_group_row(name: str, rn: str) -> SimpleNamespace:
+    return SimpleNamespace(ad_group=SimpleNamespace(name=name, resource_name=rn))
+
+
+def _fake_keyword_row(ag_rn: str, text: str, match_type_int: int) -> SimpleNamespace:
+    return SimpleNamespace(
+        ad_group=SimpleNamespace(resource_name=ag_rn),
+        ad_group_criterion=SimpleNamespace(
+            keyword=SimpleNamespace(text=text, match_type=match_type_int),
+            type=2,
+        ),
+    )
+
+
+def _fake_rsa_row(ag_rn: str, final_url: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        ad_group=SimpleNamespace(resource_name=ag_rn),
+        ad_group_ad=SimpleNamespace(ad=SimpleNamespace(final_urls=[final_url])),
+    )
+
+
+def test_resume_skips_budget_campaign_criteria(small_plan) -> None:
+    """Resume mode must not create a new budget/campaign/criteria block — those
+    already exist on the live campaign being resumed."""
+    fake = _FakeClient()
+    # Stub: live snapshot shows the campaign has criteria but nothing else.
+    fake.stub_search_rows = {
+        "FROM ad_group ": [],
+        "FROM ad_group_criterion": [],
+        "FROM ad_group_ad ": [],
+        "FROM campaign_criterion": [SimpleNamespace(campaign_criterion=SimpleNamespace(resource_name="customers/.../campaignCriteria/1"))],
+        "FROM campaign_asset": [],
+    }
+    pusher = CampaignPusher(
+        customer_id="123-456-7890", client=fake,
+        resume_campaign_id="999999",
+    )
+    pusher.push(small_plan)
+    services = [c["service"] for c in fake.calls if c["method"].startswith("mutate_")]
+    # No budget/campaign/criteria mutates — only ad-group + downstream.
+    assert "CampaignBudgetService" not in services
+    assert "CampaignService" not in services
+    assert "CampaignCriterionService" not in services
+    assert "AdGroupService" in services
+
+
+def test_resume_skips_existing_ad_groups(small_plan) -> None:
+    """Live ad groups whose unique-suffixed name matches an existing entity must
+    be skipped at the create phase and reused in the downstream rn lookup."""
+    fake = _FakeClient()
+    # Pick two ad group names from the plan and pretend they're already live.
+    plan_names = [ag.name for ag in small_plan.campaigns[0].ad_groups]
+    existing = plan_names[:2]
+    fake.stub_search_rows = {
+        "FROM ad_group ": [
+            _fake_ad_group_row(name, f"customers/4691807001/adGroups/live-{i}")
+            for i, name in enumerate(existing)
+        ],
+        "FROM ad_group_criterion": [],
+        "FROM ad_group_ad ": [],
+        "FROM campaign_criterion": [],
+        "FROM campaign_asset": [],
+    }
+    pusher = CampaignPusher(
+        customer_id="469-180-7001", client=fake,
+        resume_campaign_id="999999",
+    )
+    report = pusher.push(small_plan)
+    # AdGroupService mutates contain only the 8 new ones, not 10.
+    ag_calls = [c for c in fake.calls if c["service"] == "AdGroupService" and c["method"].startswith("mutate_")]
+    total_ag_ops = sum(c["count"] for c in ag_calls)
+    assert total_ag_ops == 8
+    # The report's ad_groups list only records NEWLY created ones.
+    assert len(report.ad_groups) == 8
+    # Warning surfaces the resumed entity count.
+    assert any("skipped 2 existing ad groups" in w for w in pusher.warnings)
+
+
+def test_resume_skips_existing_keywords(small_plan) -> None:
+    """Keywords whose (ad_group, text, match_type) tuple matches a live entity
+    must be filtered out before the mutate batch is built."""
+    fake = _FakeClient()
+    # All 10 ad groups are already live; pick one and pre-populate its first
+    # keyword as already-pushed. PHRASE match = 3 in Google's enum.
+    plan_ag = small_plan.campaigns[0].ad_groups[0]
+    plan_names = [ag.name for ag in small_plan.campaigns[0].ad_groups]
+    live_ag_rn = "customers/4691807001/adGroups/live-0"
+    live_kw_text = plan_ag.keywords[0].text
+    fake.stub_search_rows = {
+        "FROM ad_group ": [
+            _fake_ad_group_row(name, f"customers/4691807001/adGroups/live-{i}")
+            for i, name in enumerate(plan_names)
+        ],
+        "FROM ad_group_criterion": [
+            _fake_keyword_row(live_ag_rn, live_kw_text, 3),
+        ],
+        "FROM ad_group_ad ": [],
+        "FROM campaign_criterion": [],
+        "FROM campaign_asset": [],
+    }
+    pusher = CampaignPusher(
+        customer_id="469-180-7001", client=fake,
+        resume_campaign_id="999999",
+    )
+    pusher.push(small_plan)
+    # Verify the warning notes 1 keyword skip.
+    assert any("skipped 1 existing keywords" in w for w in pusher.warnings)
+
+
+def test_resume_skips_existing_rsas_by_text_n(small_plan) -> None:
+    """RSAs are matched by (ad_group_rn, text=N in final_url). One variant per
+    text=N per ad group is the contract; a live RSA at text=1 means the plan's
+    text=1 variant for that ad group must be skipped."""
+    fake = _FakeClient()
+    plan_names = [ag.name for ag in small_plan.campaigns[0].ad_groups]
+    # Pretend ad-group 0's text=1 RSA is already live; all 10 ad groups exist.
+    live_ag_rn = "customers/4691807001/adGroups/live-0"
+    live_url = "https://example.com/?to=DPS&text=1"
+    fake.stub_search_rows = {
+        "FROM ad_group ": [
+            _fake_ad_group_row(name, f"customers/4691807001/adGroups/live-{i}")
+            for i, name in enumerate(plan_names)
+        ],
+        "FROM ad_group_criterion": [],
+        "FROM ad_group_ad ": [_fake_rsa_row(live_ag_rn, live_url)],
+        "FROM campaign_criterion": [],
+        "FROM campaign_asset": [],
+    }
+    pusher = CampaignPusher(
+        customer_id="469-180-7001", client=fake,
+        resume_campaign_id="999999",
+    )
+    pusher.push(small_plan)
+    assert any("skipped 1 existing RSAs" in w for w in pusher.warnings)
+
+
+def test_resume_skips_asset_phases_when_already_live(small_plan) -> None:
+    """If the campaign already has sitelinks/callouts/promotions, those phases
+    are skipped entirely on resume — we don't want to create duplicates."""
+    fake = _FakeClient()
+    plan_names = [ag.name for ag in small_plan.campaigns[0].ad_groups]
+    fake.stub_search_rows = {
+        "FROM ad_group ": [
+            _fake_ad_group_row(name, f"customers/4691807001/adGroups/live-{i}")
+            for i, name in enumerate(plan_names)
+        ],
+        "FROM ad_group_criterion": [],
+        "FROM ad_group_ad ": [],
+        "FROM campaign_criterion": [],
+        "FROM campaign_asset": [
+            SimpleNamespace(campaign_asset=SimpleNamespace(field_type="SITELINK")),
+            SimpleNamespace(campaign_asset=SimpleNamespace(field_type="CALLOUT")),
+            SimpleNamespace(campaign_asset=SimpleNamespace(field_type="PROMOTION")),
+        ],
+    }
+    pusher = CampaignPusher(
+        customer_id="469-180-7001", client=fake,
+        resume_campaign_id="999999",
+    )
+    pusher.push(small_plan)
+    warnings_text = "\n".join(pusher.warnings)
+    assert "skipping sitelinks" in warnings_text
+    assert "skipping callouts" in warnings_text
+    assert "skipping promotions" in warnings_text

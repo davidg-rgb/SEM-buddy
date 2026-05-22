@@ -97,6 +97,32 @@ def case_push(
             "warning."
         ),
     ),
+    bid_strategy: str = typer.Option(
+        "",
+        "--bid-strategy",
+        help=(
+            "Override the case.yaml's selected bid strategy. Use "
+            "'MAXIMIZE_CLICKS' (or 'clicks') on a fresh test account that "
+            "lacks conversion tracking — TARGET_ROAS / "
+            "MAXIMIZE_CONVERSION_VALUE require a configured conversion "
+            "action or Google rejects the campaign with "
+            "CONVERSION_TRACKING_NOT_ENABLED. The operator flips to the "
+            "intended smart-bidding strategy in the UI once conversion "
+            "tracking is wired up."
+        ),
+    ),
+    resume: str = typer.Option(
+        "",
+        "--resume",
+        help=(
+            "Resume an existing partial campaign by ID (numeric, no "
+            "'customers/...' prefix). Skips budget/campaign/criteria "
+            "creation, queries live state, and pushes ONLY entities that "
+            "don't already exist. Pair with --name-suffix matching the "
+            "original push's suffix so plan entity names line up with "
+            "the live ones (e.g. ' [2026-05-21 17:18:46]')."
+        ),
+    ),
 ) -> None:
     """Push a built case to the LIVE Google Ads account.
 
@@ -177,11 +203,33 @@ def case_push(
     if auto_suffix and not suffix:
         suffix = " [" + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "]"
 
+    # Normalise the --bid-strategy override: empty → None, 'clicks' → 'MAXIMIZE_CLICKS'.
+    bid_override: str | None = None
+    if bid_strategy:
+        bs = bid_strategy.strip().upper().replace("-", "_")
+        if bs in ("CLICKS", "MAXIMIZE_CLICKS"):
+            bid_override = "MAXIMIZE_CLICKS"
+        elif bs in ("MANUAL_CPC", "CPC"):
+            bid_override = "MANUAL_CPC"
+        else:
+            bid_override = bs
+
+    # Resume mode: parse the campaign id (accept either '23869105844' or
+    # the full 'customers/.../campaigns/23869105844' resource name).
+    resume_id: str | None = None
+    if resume:
+        resume_id = resume.strip().split("/")[-1] if "/" in resume else resume.strip()
+        if not resume_id.isdigit():
+            rprint(f"[red]Invalid --resume value: {resume!r}. Expected a numeric campaign id.[/red]")
+            raise typer.Exit(1)
+
     pusher = CampaignPusher(
         customer_id=account.customer_id,
         dry_run=dry_run,
         name_suffix=suffix,
         skip_lead_forms=skip_lead_forms,
+        bid_strategy_override=bid_override,
+        resume_campaign_id=resume_id,
     )
     try:
         report = pusher.push(plan)

@@ -191,11 +191,33 @@ _TRAILING_CONNECTORS_SV = {
 _TITLE_CASE_LOWER_EN = {"to", "the", "a", "an", "for", "of", "and", "in", "on", "at", "by"}
 
 
+def _title_case_word(word: str) -> str:
+    """Title-case a single word, hyphen-aware.
+
+    Python's built-in `str.capitalize()` lowercases everything after the
+    first character — which destroys hyphenated proper nouns like
+    'Petropavlovsk-Kamchatsky' → 'Petropavlovsk-kamchatsky' (lowercase
+    'k' on the second segment). We split on '-' and capitalize each
+    segment so the casing survives. Already-uppercase tokens (IATA
+    codes like 'NYC', 'DFW') are preserved as-is.
+    """
+    if word.isupper():
+        return word
+    if "-" in word:
+        return "-".join(seg if seg.isupper() else seg.capitalize() for seg in word.split("-"))
+    return word.capitalize()
+
+
 def _title_case_keyword(kw: str) -> str:
     """Title-case a keyword for use as a headline. First and last words are
     always capitalized; middle stop-words stay lowercase per English
     title-case convention (so 'cheap flights to hartford' becomes
-    'Cheap Flights to Hartford' rather than 'Cheap flights to hartford')."""
+    'Cheap Flights to Hartford' rather than 'Cheap flights to hartford').
+
+    Hyphenated tokens are title-cased segment-by-segment via
+    `_title_case_word` so 'petropavlovsk-kamchatsky' becomes
+    'Petropavlovsk-Kamchatsky' rather than 'Petropavlovsk-kamchatsky'.
+    """
     parts = kw.split()
     if not parts:
         return kw
@@ -206,8 +228,7 @@ def _title_case_keyword(kw: str) -> str:
         if 0 < i < last_idx and low in _TITLE_CASE_LOWER_EN:
             out.append(low)
         else:
-            # Preserve already-uppercase IATA-like tokens; otherwise capitalize.
-            out.append(p if p.isupper() else p.capitalize())
+            out.append(_title_case_word(p))
     return " ".join(out)
 
 
@@ -847,9 +868,15 @@ def generate_headlines(
     def _add(text: str) -> bool:
         text = _apply_language_rules(text, language)
         text = _fit_to_limit(text, 30, language)
-        if not text or text in seen_texts or len(text) > 30:
+        if not text or len(text) > 30:
             return False
-        seen_texts.add(text)
+        # Case-insensitive dedup so 'Karpathos Flights' + 'Karpathos flights'
+        # don't both ship in the same variant (Google's RSA optimizer dampens
+        # ad strength on near-duplicates).
+        key = text.casefold()
+        if key in seen_texts:
+            return False
+        seen_texts.add(key)
         headlines.append(AdHeadline(text=text))
         return True
 
@@ -934,9 +961,12 @@ def generate_descriptions(
     def _add(text: str) -> bool:
         text = _apply_language_rules(text, language)
         text = _fit_to_limit(text, 90, language)
-        if not text or text in seen or len(text) > 90:
+        if not text or len(text) > 90:
             return False
-        seen.add(text)
+        key = text.casefold()
+        if key in seen:
+            return False
+        seen.add(key)
         descriptions.append(AdDescription(text=text))
         return True
 
@@ -1246,11 +1276,17 @@ def generate_headlines_for_variant(
     def _add(text: str) -> bool:
         text = _apply_language_rules(text, language)
         text = _fit_to_limit(text, 30, language)
-        if not text or text in seen_texts or len(text) > 30:
+        if not text or len(text) > 30:
+            return False
+        # Case-insensitive dedup — see generate_headlines() for the
+        # rationale. RSA optimizer treats 'Karpathos Flights' and
+        # 'Karpathos flights' as semantic dupes; ship neither side-by-side.
+        key = text.casefold()
+        if key in seen_texts:
             return False
         if _would_exceed_pct_cap(text):
             return False
-        seen_texts.add(text)
+        seen_texts.add(key)
         headlines.append(AdHeadline(text=text))
         return True
 
@@ -1501,9 +1537,12 @@ def generate_descriptions_for_variant(
     def _add(text: str) -> bool:
         text = _apply_language_rules(text, language)
         text = _fit_to_limit(text, 90, language)
-        if not text or text in seen or len(text) > 90:
+        if not text or len(text) > 90:
             return False
-        seen.add(text)
+        key = text.casefold()
+        if key in seen:
+            return False
+        seen.add(key)
         descriptions.append(AdDescription(text=text))
         return True
 
@@ -1581,15 +1620,67 @@ def _pick_variant_cta_text(patterns_data: dict, variant_role: str, idx: int = 0)
     return None
 
 
+_PATH_GENERIC_GEO_PREFIXES = {
+    "san", "santa", "sao", "new", "north", "south", "east", "west",
+    "ft", "fort", "port", "saint", "st",
+}
+
+
+def _grow_path_segment(words: list[str], max_chars: int) -> tuple[str, int]:
+    """Greedily concat words while staying ≤ max_chars (no internal spaces —
+    Google Ads display paths render '-' as separators visually but we use
+    the raw word concatenation here for character budget). Returns
+    (segment, words_consumed)."""
+    if not words:
+        return "", 0
+    out = words[0]
+    consumed = 1
+    if len(out) > max_chars:
+        # First word alone overflows — use a clean word-boundary slice
+        # (no mid-syllable chop). Already a single word, so just truncate
+        # to max_chars; this preserves the v0.3.4 behaviour for genuine
+        # over-budget tokens. Path columns are display-only.
+        return out[:max_chars], 1
+    # Try extending with subsequent words.
+    while consumed < len(words):
+        nxt = words[consumed]
+        joined = out + nxt  # no separator — display path is a single token
+        if len(joined) > max_chars:
+            break
+        out = joined
+        consumed += 1
+    return out, consumed
+
+
 def _resolve_path1_path2(
     ad_group_theme: str, product: Product | None, language: str,
 ) -> tuple[str, str]:
+    # v0.3.7: replace hyphens with spaces (not empty) so 'Petropavlovsk-
+    # Kamchatsky' becomes ['petropavlovsk', 'kamchatsky'] instead of
+    # being chopped to 'petropavlovskka' at char 15. Then grow Path 1
+    # word-by-word so multi-word names that fit in 15 chars
+    # ('westpalmbeach' = 13) stay whole instead of degrading to 'west'.
     if product is not None and product.name:
-        path_basis = re.sub(r"[^A-Za-z0-9 ]+", "", product.name).lower().split()
+        cleaned = re.sub(r"[^A-Za-z0-9]+", " ", product.name).strip().lower()
+        words = cleaned.split()
     else:
-        path_basis = ad_group_theme.lower().split()
-    path1 = _fit_to_limit(path_basis[0] if path_basis else "", 15, language)
-    path2 = _fit_to_limit(path_basis[1] if len(path_basis) > 1 else "", 15, language)
+        words = ad_group_theme.lower().split()
+    # For generic-prefix destinations (West Palm Beach, San Carlos De
+    # Bariloche), the first word alone is too generic for a URL display
+    # path. Skip the generic prefix if the rest of the name still has
+    # meaningful tokens to grow from.
+    if (
+        len(words) >= 2
+        and words[0] in _PATH_GENERIC_GEO_PREFIXES
+        # Don't strip if the second word is also a particle/connector.
+        and words[1] not in _PATH_GENERIC_GEO_PREFIXES
+    ):
+        words = words[1:]
+    path1, consumed = _grow_path_segment(words, 15)
+    path1 = _fit_to_limit(path1, 15, language)
+    remaining = words[consumed:]
+    path2_raw, _ = _grow_path_segment(remaining, 15)
+    path2 = _fit_to_limit(path2_raw, 15, language)
     if not path1 and product is not None:
         path1 = _fit_to_limit(product.sku.lower(), 15, language)
     return path1, path2

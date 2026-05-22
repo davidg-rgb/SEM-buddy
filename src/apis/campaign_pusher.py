@@ -19,6 +19,7 @@ either re-run or manually clean up.
 from __future__ import annotations
 
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import date
@@ -164,16 +165,104 @@ def _batched(iterable: Iterable, size: int):
         yield batch
 
 
-def _safe_mutate(call, customer_id: str, operations: list, *, label: str):
-    """Wrap a mutate call so SDK errors come back as GoogleAdsApiError with context."""
-    try:
-        return call(customer_id=customer_id, operations=operations)
-    except Exception as exc:
-        wrapped = _wrap_google_ads_error(exc)
-        raise GoogleAdsApiError(
-            f"{label} mutate failed ({len(operations)} ops): {wrapped}",
-            hint=getattr(wrapped, "hint", ""),
-        ) from exc
+def _safe_mutate(
+    call,
+    customer_id: str,
+    operations: list,
+    *,
+    label: str,
+    partial_failure: bool = False,
+    warnings_sink: list[str] | None = None,
+    max_retries: int = 4,
+):
+    """Wrap a mutate call so SDK errors come back as GoogleAdsApiError with context.
+
+    When `partial_failure=True` is passed, Google Ads applies all valid
+    operations and returns per-op errors for the rest under
+    `partial_failure_error` instead of failing the whole batch. Use this
+    on keywords / RSAs / assets where a single policy-flagged entity
+    (e.g. PGD flights triggering the 'Healthcare and medicines' false-
+    positive filter on the IATA code) shouldn't block the other 99% of
+    the batch. Per-op errors are appended to `warnings_sink` if provided.
+
+    Default `partial_failure=False` preserves all-or-nothing behaviour for
+    structural mutates (budget / campaign / ad group) where a single
+    failure typically reflects a real config problem the operator should
+    fix and retry.
+    """
+    # Exponential backoff on RESOURCE_EXHAUSTED (Google Ads rate limit).
+    # Google's per-account ops/min ceiling can briefly throttle large pushes
+    # (~17k entities); a single 30→60→120s backoff almost always recovers.
+    attempt = 0
+    last_exc: Exception | None = None
+    while True:
+        attempt += 1
+        try:
+            if partial_failure:
+                # The SDK's mutate methods take partial_failure via the
+                # request DICT, not a top-level kwarg.
+                resp = call(request={
+                    "customer_id": customer_id,
+                    "operations": operations,
+                    "partial_failure": True,
+                })
+            else:
+                resp = call(customer_id=customer_id, operations=operations)
+            break
+        except Exception as exc:
+            last_exc = exc
+            msg = str(exc)
+            is_quota = (
+                "RESOURCE_EXHAUSTED" in msg
+                or "Resource has been exhausted" in msg
+                or "429" in msg
+            )
+            if is_quota and attempt <= max_retries:
+                # Backoff: 30, 60, 120, 240 seconds.
+                delay = 30 * (2 ** (attempt - 1))
+                logger.warning(
+                    "%s mutate hit RESOURCE_EXHAUSTED on attempt %d/%d "
+                    "(%d ops). Sleeping %ds then retrying.",
+                    label, attempt, max_retries + 1, len(operations), delay,
+                )
+                if warnings_sink is not None:
+                    warnings_sink.append(
+                        f"{label}: RESOURCE_EXHAUSTED, retrying after {delay}s "
+                        f"(attempt {attempt}/{max_retries + 1})"
+                    )
+                import time as _time
+                _time.sleep(delay)
+                continue
+            # Non-quota error or out of retries — surface upward.
+            wrapped = _wrap_google_ads_error(exc)
+            raise GoogleAdsApiError(
+                f"{label} mutate failed ({len(operations)} ops): {wrapped}",
+                hint=getattr(wrapped, "hint", ""),
+            ) from exc
+
+    # Surface partial_failure errors as warnings so the operator sees them.
+    if partial_failure and warnings_sink is not None:
+        err = getattr(resp, "partial_failure_error", None)
+        if err is not None and getattr(err, "code", 0) != 0:
+            # `err.details` carries GoogleAdsFailure(s) with per-op errors.
+            for detail in getattr(err, "details", []):
+                try:
+                    failure = type(detail).FromString(detail.value)
+                    for op_err in getattr(failure, "errors", []):
+                        msg = getattr(op_err, "message", "") or str(op_err)
+                        loc = getattr(op_err, "location", None)
+                        idx = ""
+                        if loc:
+                            for elt in getattr(loc, "field_path_elements", []):
+                                if getattr(elt, "field_name", "") == "operations":
+                                    idx = f" op[{elt.index}]"
+                                    break
+                        warnings_sink.append(f"{label}{idx}: {msg}")
+                except Exception:
+                    # If we can't parse the failure detail, surface the
+                    # message at least so it isn't silently dropped.
+                    warnings_sink.append(f"{label}: {getattr(err, 'message', 'partial failure')}")
+    return resp
 
 
 # ---------------------------------------------------------------------------
@@ -228,6 +317,140 @@ def _apply_bid_strategy(client: "GoogleAdsClient", campaign, strategy: str) -> N
 
 
 # ---------------------------------------------------------------------------
+# Resume state — populated when resuming an existing campaign
+# ---------------------------------------------------------------------------
+
+
+_TEXT_N_RE = re.compile(r"[?&]text=(\d+)")
+
+
+def _extract_text_n(final_url: str) -> int | None:
+    """Pull the `text=N` parameter from an RSA's final URL so we can
+    match variants between the plan and the live state. Returns None
+    when the URL has no text= param (legacy / single-variant ads)."""
+    if not final_url:
+        return None
+    m = _TEXT_N_RE.search(final_url)
+    return int(m.group(1)) if m else None
+
+
+@dataclass
+class _ResumeState:
+    """Snapshot of a live campaign's child entities, queried once at push
+    start. Each phase consults this to filter out operations whose target
+    entity already exists.
+
+    Identification keys:
+      - ad groups: by NAME (the unique-suffixed plan name must equal the
+        live ad-group name verbatim)
+      - keywords: by (ad_group_resource_name, keyword_text_casefold,
+        match_type) tuple
+      - RSAs: by (ad_group_resource_name, text_n) — one variant per
+        text=N slot per ad group is the contract
+      - campaign criteria + assets: per-type existence flag (skip the
+        whole phase if any entries already exist)
+    """
+
+    campaign_rn: str
+    ag_rn_by_name: dict[str, str] = field(default_factory=dict)
+    existing_keywords: set[tuple[str, str, str]] = field(default_factory=set)
+    existing_rsa_text_n: set[tuple[str, int]] = field(default_factory=set)
+    has_campaign_criteria: bool = False
+    has_sitelinks: bool = False
+    has_callouts: bool = False
+    has_promotions: bool = False
+    has_lead_forms: bool = False
+
+
+def _build_resume_state(client, customer_id: str, campaign_id: str) -> _ResumeState:
+    """Query a live campaign and snapshot every child entity the pusher
+    knows how to recreate. Single GAQL pass per entity type — kept tight
+    to minimize quota burn on the resume path itself."""
+    campaign_rn = f"customers/{customer_id}/campaigns/{campaign_id}"
+    state = _ResumeState(campaign_rn=campaign_rn)
+    ga = client.get_service("GoogleAdsService")
+
+    # Ad groups — name → resource_name
+    for row in ga.search(
+        customer_id=customer_id,
+        query=(
+            "SELECT ad_group.id, ad_group.name, ad_group.resource_name "
+            f"FROM ad_group WHERE campaign.id = {campaign_id}"
+        ),
+    ):
+        state.ag_rn_by_name[row.ad_group.name] = row.ad_group.resource_name
+
+    if not state.ag_rn_by_name:
+        return state
+
+    # Keywords — (ag_rn, text.casefold(), match_type_name)
+    match_type_name = {0: "UNSPECIFIED", 1: "UNKNOWN", 2: "EXACT", 3: "PHRASE", 4: "BROAD"}
+    for row in ga.search(
+        customer_id=customer_id,
+        query=(
+            "SELECT ad_group.resource_name, ad_group_criterion.keyword.text, "
+            "ad_group_criterion.keyword.match_type, ad_group_criterion.type "
+            f"FROM ad_group_criterion WHERE campaign.id = {campaign_id} "
+            "AND ad_group_criterion.type = 'KEYWORD'"
+        ),
+    ):
+        mt = match_type_name.get(int(row.ad_group_criterion.keyword.match_type), "PHRASE")
+        state.existing_keywords.add((
+            row.ad_group.resource_name,
+            row.ad_group_criterion.keyword.text.casefold(),
+            mt,
+        ))
+
+    # RSAs — (ag_rn, text_n). One RSA variant per text=N slot per ad group.
+    for row in ga.search(
+        customer_id=customer_id,
+        query=(
+            "SELECT ad_group.resource_name, ad_group_ad.ad.final_urls "
+            f"FROM ad_group_ad WHERE campaign.id = {campaign_id} "
+            "AND ad_group_ad.ad.type = 'RESPONSIVE_SEARCH_AD'"
+        ),
+    ):
+        urls = list(row.ad_group_ad.ad.final_urls)
+        n = _extract_text_n(urls[0]) if urls else None
+        if n is not None:
+            state.existing_rsa_text_n.add((row.ad_group.resource_name, n))
+        else:
+            # Legacy RSAs without text=N — block re-pushing any RSA to
+            # this ad group (treat as "ad group has an RSA already").
+            state.existing_rsa_text_n.add((row.ad_group.resource_name, -1))
+
+    # Campaign criteria — single bool (rebuild is harmless but wasteful)
+    crit_rows = list(ga.search(
+        customer_id=customer_id,
+        query=(
+            "SELECT campaign_criterion.resource_name "
+            f"FROM campaign_criterion WHERE campaign.id = {campaign_id}"
+        ),
+    ))
+    state.has_campaign_criteria = len(crit_rows) > 0
+
+    # Campaign-level assets — sitelinks / callouts / promotions / lead forms
+    for row in ga.search(
+        customer_id=customer_id,
+        query=(
+            "SELECT campaign_asset.field_type "
+            f"FROM campaign_asset WHERE campaign.id = {campaign_id}"
+        ),
+    ):
+        ft = str(row.campaign_asset.field_type)
+        if "SITELINK" in ft:
+            state.has_sitelinks = True
+        elif "CALLOUT" in ft:
+            state.has_callouts = True
+        elif "PROMOTION" in ft:
+            state.has_promotions = True
+        elif "LEAD_FORM" in ft:
+            state.has_lead_forms = True
+
+    return state
+
+
+# ---------------------------------------------------------------------------
 # The pusher
 # ---------------------------------------------------------------------------
 
@@ -251,7 +474,16 @@ class CampaignPusher:
     dry_run: bool = False
     batch_size: int = DEFAULT_BATCH_SIZE
     name_suffix: str = ""  # appended to entity names for uniqueness / re-runs
+    bid_strategy_override: str | None = None  # force a specific bid strategy, bypassing the case.yaml's choice. Use for test accounts without conversion tracking (set to "MAXIMIZE_CLICKS").
     skip_lead_forms: bool = False
+    # Resume an existing campaign that was partially pushed (e.g. quota
+    # killed yesterday's push at the RSA phase). When set, the pusher
+    # skips budget/campaign/criteria creation and instead queries the
+    # live campaign for ad groups + keywords + ads, then pushes ONLY the
+    # entities that don't already exist. Pair with `--name-suffix` set
+    # to whatever suffix the original push used (so the plan's entity
+    # names match the live ones).
+    resume_campaign_id: str | None = None
     warnings: list[str] = field(default_factory=list)
 
     def _get_client(self):
@@ -265,7 +497,12 @@ class CampaignPusher:
     # ------------------------------------------------------------------
 
     def push(self, plan: CampaignPlan) -> PushReport:
-        """Push the entire plan. Returns a `PushReport` with every resource name."""
+        """Push the entire plan. Returns a `PushReport` with every resource name.
+
+        When `resume_campaign_id` is set, the pusher skips budget/campaign/
+        criteria creation, queries the live campaign for existing entities,
+        and only pushes what's missing. This is the multi-day recovery path
+        when daily ops quota kills a push mid-flight."""
         clean_id = _normalize_customer_id(self.customer_id)
         report = PushReport(customer_id=self.customer_id, dry_run=self.dry_run)
         if not plan.campaigns:
@@ -274,27 +511,69 @@ class CampaignPusher:
         start = time.perf_counter()
 
         client = self._get_client()
+        resume_state: _ResumeState | None = None
+        if self.resume_campaign_id and not self.dry_run:
+            logger.info(
+                "Resume mode: querying live campaign %s for existing entities",
+                self.resume_campaign_id,
+            )
+            resume_state = _build_resume_state(client, clean_id, self.resume_campaign_id)
+            logger.info(
+                "Resume snapshot: %d ad groups, %d keywords, %d RSAs "
+                "(criteria=%s, sitelinks=%s, callouts=%s, promotions=%s)",
+                len(resume_state.ag_rn_by_name),
+                len(resume_state.existing_keywords),
+                len(resume_state.existing_rsa_text_n),
+                resume_state.has_campaign_criteria,
+                resume_state.has_sitelinks,
+                resume_state.has_callouts,
+                resume_state.has_promotions,
+            )
+            self.warnings.append(
+                f"Resume mode: snapshot has {len(resume_state.ag_rn_by_name)} "
+                f"ad groups, {len(resume_state.existing_keywords)} keywords, "
+                f"{len(resume_state.existing_rsa_text_n)} RSAs already live"
+            )
         logger.info(
-            "Pushing plan to %s (%d campaigns, %d ad groups, dry_run=%s)",
+            "Pushing plan to %s (%d campaigns, %d ad groups, dry_run=%s, resume=%s)",
             self.customer_id,
             len(plan.campaigns),
             sum(len(c.ad_groups) for c in plan.campaigns),
             self.dry_run,
+            bool(resume_state),
         )
 
         for campaign in plan.campaigns:
-            budget_rn = self._push_budget(client, clean_id, campaign, report)
-            campaign_rn = self._push_campaign(client, clean_id, campaign, budget_rn, report)
-            self._push_campaign_targeting(client, clean_id, campaign, campaign_rn, report)
-            ag_rn_by_name = self._push_ad_groups(client, clean_id, campaign, campaign_rn, report)
-            self._push_keywords(client, clean_id, campaign, ag_rn_by_name, report)
-            self._push_ads(client, clean_id, campaign, ag_rn_by_name, report)
+            if resume_state is not None:
+                # Skip budget/campaign/criteria — they exist already.
+                campaign_rn = resume_state.campaign_rn
+                report.campaigns.append(EntityResult(
+                    "campaign", campaign_rn, campaign.name + " (resumed)",
+                ))
+            else:
+                budget_rn = self._push_budget(client, clean_id, campaign, report)
+                campaign_rn = self._push_campaign(client, clean_id, campaign, budget_rn, report)
+                self._push_campaign_targeting(client, clean_id, campaign, campaign_rn, report)
+            ag_rn_by_name = self._push_ad_groups(
+                client, clean_id, campaign, campaign_rn, report, resume_state,
+            )
+            self._push_keywords(client, clean_id, campaign, ag_rn_by_name, report, resume_state)
+            self._push_ads(client, clean_id, campaign, ag_rn_by_name, report, resume_state)
 
             # Plan-level assets (the same plan-level sitelinks / callouts / lead-
-            # forms are reused across every campaign).
-            self._push_sitelinks(client, clean_id, plan.sitelinks, campaign_rn, report)
-            self._push_callouts(client, clean_id, plan.callouts, campaign_rn, report)
-            if not self.skip_lead_forms:
+            # forms are reused across every campaign). Skip on resume if the
+            # live campaign already has assets of that type.
+            if resume_state is None or not resume_state.has_sitelinks:
+                self._push_sitelinks(client, clean_id, plan.sitelinks, campaign_rn, report)
+            else:
+                self.warnings.append("Resume: skipping sitelinks (already live)")
+            if resume_state is None or not resume_state.has_callouts:
+                self._push_callouts(client, clean_id, plan.callouts, campaign_rn, report)
+            else:
+                self.warnings.append("Resume: skipping callouts (already live)")
+            if not self.skip_lead_forms and (
+                resume_state is None or not resume_state.has_lead_forms
+            ):
                 try:
                     self._push_lead_forms(client, clean_id, plan.lead_forms, campaign.name, campaign_rn, report)
                 except GoogleAdsApiError as exc:
@@ -312,8 +591,11 @@ class CampaignPusher:
                         raise
 
             # Promotion extensions targeted at this campaign's ad groups
-            campaign_promotions = [p for p in plan.promotions if p.campaign_name == campaign.name]
-            self._push_promotions(client, clean_id, campaign_promotions, ag_rn_by_name, campaign_rn, report)
+            if resume_state is None or not resume_state.has_promotions:
+                campaign_promotions = [p for p in plan.promotions if p.campaign_name == campaign.name]
+                self._push_promotions(client, clean_id, campaign_promotions, ag_rn_by_name, campaign_rn, report)
+            else:
+                self.warnings.append("Resume: skipping promotions (already live)")
 
         report.elapsed_seconds = time.perf_counter() - start
         logger.info("Push complete: %s", report.summary())
@@ -472,7 +754,15 @@ class CampaignPusher:
         c.advertising_channel_type = client.enums.AdvertisingChannelTypeEnum.SEARCH
         c.status = client.enums.CampaignStatusEnum.PAUSED  # always paused on first push
         c.campaign_budget = budget_rn
-        _apply_bid_strategy(client, c, campaign.bid_strategy)
+        # Apply the bid strategy. `bid_strategy_override` lets the caller
+        # bypass the case.yaml's choice — required for test accounts that
+        # don't have conversion tracking enabled, since smart-bidding
+        # strategies (TARGET_ROAS / MAXIMIZE_CONVERSION_VALUE) fail with
+        # CONVERSION_TRACKING_NOT_ENABLED on a clean account. The operator
+        # flips to the intended strategy in the UI after wiring up
+        # conversion tracking.
+        effective_strategy = self.bid_strategy_override or campaign.bid_strategy
+        _apply_bid_strategy(client, c, effective_strategy)
         # Make sure search network only (no display partners on a brand-new
         # SEM campaign — caller can flip later in the UI).
         c.network_settings.target_google_search = True
@@ -541,11 +831,18 @@ class CampaignPusher:
     # ------------------------------------------------------------------
 
     def _push_ad_groups(
-        self, client, customer_id, campaign: Campaign, campaign_rn: str, report: PushReport
+        self, client, customer_id, campaign: Campaign, campaign_rn: str, report: PushReport,
+        resume_state: "_ResumeState | None" = None,
     ) -> dict[str, str]:
         ag_rn_by_name: dict[str, str] = {}
+        # Resume: pre-populate with already-live ad groups so downstream
+        # phases (keywords, RSAs) can target them; the resume path matches
+        # by the unique-suffixed plan name.
+        if resume_state is not None:
+            ag_rn_by_name.update(resume_state.ag_rn_by_name)
         # Pre-build all operations so we can batch
         all_ops: list[tuple[str, Any]] = []
+        skipped_existing = 0
         for ag in campaign.ad_groups:
             if self.dry_run:
                 ag_rn_by_name[ag.name] = (
@@ -553,9 +850,16 @@ class CampaignPusher:
                 )
                 report.ad_groups.append(EntityResult("ad_group", ag_rn_by_name[ag.name], ag.name))
                 continue
+            unique_name = self._unique_name(ag.name)
+            if resume_state is not None and unique_name in resume_state.ag_rn_by_name:
+                # Already live — keep it in the map under the PLAN name so
+                # downstream phases match it.
+                ag_rn_by_name[ag.name] = resume_state.ag_rn_by_name[unique_name]
+                skipped_existing += 1
+                continue
             op = client.get_type("AdGroupOperation")
             ag_proto = op.create
-            ag_proto.name = self._unique_name(ag.name)
+            ag_proto.name = unique_name
             ag_proto.campaign = campaign_rn
             ag_proto.status = client.enums.AdGroupStatusEnum.PAUSED
             ag_proto.type_ = client.enums.AdGroupTypeEnum.SEARCH_STANDARD
@@ -565,6 +869,12 @@ class CampaignPusher:
             # campaign_criterion if needed; for now we let the cpc_bid_micros
             # cover the absolute lever.
             all_ops.append((ag.name, op))
+
+        if resume_state is not None and skipped_existing:
+            self.warnings.append(
+                f"Resume: skipped {skipped_existing} existing ad groups, "
+                f"pushing {len(all_ops)} new"
+            )
 
         if self.dry_run:
             return ag_rn_by_name
@@ -586,7 +896,10 @@ class CampaignPusher:
     # Keywords (batched)
     # ------------------------------------------------------------------
 
-    def _push_keywords(self, client, customer_id, campaign: Campaign, ag_rn_by_name: dict[str, str], report: PushReport) -> None:
+    def _push_keywords(
+        self, client, customer_id, campaign: Campaign, ag_rn_by_name: dict[str, str],
+        report: PushReport, resume_state: "_ResumeState | None" = None,
+    ) -> None:
         match_type_enum = client.enums.KeywordMatchTypeEnum
         match_map = {
             "BROAD": match_type_enum.BROAD,
@@ -594,6 +907,7 @@ class CampaignPusher:
             "EXACT": match_type_enum.EXACT,
         }
         all_ops: list[Any] = []
+        skipped_existing = 0
         for ag in campaign.ad_groups:
             ag_rn = ag_rn_by_name.get(ag.name)
             if ag_rn is None:
@@ -607,6 +921,11 @@ class CampaignPusher:
                         f"{ag.name}/{kw.text}",
                     ))
                     continue
+                if resume_state is not None:
+                    key = (ag_rn, kw.text.casefold(), kw.match_type)
+                    if key in resume_state.existing_keywords:
+                        skipped_existing += 1
+                        continue
                 op = client.get_type("AdGroupCriterionOperation")
                 crit = op.create
                 crit.ad_group = ag_rn
@@ -617,6 +936,12 @@ class CampaignPusher:
                     crit.final_urls.append(ag_final_url)
                 all_ops.append(op)
 
+        if resume_state is not None and skipped_existing:
+            self.warnings.append(
+                f"Resume: skipped {skipped_existing} existing keywords, "
+                f"pushing {len(all_ops)} new"
+            )
+
         if self.dry_run or not all_ops:
             return
 
@@ -625,16 +950,25 @@ class CampaignPusher:
             resp = _safe_mutate(
                 service.mutate_ad_group_criteria, customer_id, chunk,
                 label="Keyword",
+                partial_failure=True,
+                warnings_sink=self.warnings,
             )
             for r in resp.results:
-                report.keywords.append(EntityResult("keyword", r.resource_name))
+                # In partial_failure mode, failed ops still appear in
+                # results but with empty resource_name — skip those.
+                if r.resource_name:
+                    report.keywords.append(EntityResult("keyword", r.resource_name))
 
     # ------------------------------------------------------------------
     # RSAs (batched)
     # ------------------------------------------------------------------
 
-    def _push_ads(self, client, customer_id, campaign: Campaign, ag_rn_by_name: dict[str, str], report: PushReport) -> None:
+    def _push_ads(
+        self, client, customer_id, campaign: Campaign, ag_rn_by_name: dict[str, str],
+        report: PushReport, resume_state: "_ResumeState | None" = None,
+    ) -> None:
         all_ops: list[Any] = []
+        skipped_existing = 0
         for ag in campaign.ad_groups:
             ag_rn = ag_rn_by_name.get(ag.name)
             if ag_rn is None:
@@ -647,6 +981,16 @@ class CampaignPusher:
                         ag.name,
                     ))
                     continue
+                if resume_state is not None:
+                    text_n = _extract_text_n(str(ad.final_url))
+                    if text_n is not None and (ag_rn, text_n) in resume_state.existing_rsa_text_n:
+                        skipped_existing += 1
+                        continue
+                    # Legacy/no-text-N existing RSA blocks all variant pushes
+                    # to this ad group — surfaced as -1 in the snapshot.
+                    if (ag_rn, -1) in resume_state.existing_rsa_text_n:
+                        skipped_existing += 1
+                        continue
                 op = client.get_type("AdGroupAdOperation")
                 ag_ad = op.create
                 ag_ad.ad_group = ag_rn
@@ -673,6 +1017,12 @@ class CampaignPusher:
                     ad_proto.responsive_search_ad.descriptions.append(asset)
                 all_ops.append(op)
 
+        if resume_state is not None and skipped_existing:
+            self.warnings.append(
+                f"Resume: skipped {skipped_existing} existing RSAs, "
+                f"pushing {len(all_ops)} new"
+            )
+
         if self.dry_run or not all_ops:
             return
 
@@ -681,9 +1031,12 @@ class CampaignPusher:
             resp = _safe_mutate(
                 service.mutate_ad_group_ads, customer_id, chunk,
                 label="AdGroupAd",
+                partial_failure=True,
+                warnings_sink=self.warnings,
             )
             for r in resp.results:
-                report.ads.append(EntityResult("rsa", r.resource_name))
+                if r.resource_name:
+                    report.ads.append(EntityResult("rsa", r.resource_name))
 
     # ------------------------------------------------------------------
     # Sitelink assets
