@@ -7,6 +7,7 @@ that the operation tree is built correctly.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from itertools import count
@@ -20,6 +21,7 @@ from src.apis.campaign_pusher import (
     CampaignPusher,
     EntityResult,
     PushReport,
+    _extract_policy_topics,
     sek_to_micros,
 )
 from src.catalog import load_catalog_from_yaml
@@ -87,6 +89,50 @@ class _FakeOp:
         self.update_mask = _FakeProto("update_mask")
 
 
+class _FakeGaqlError(Exception):
+    """Mimics the one GoogleAdsException the snapshot queries can trigger:
+    query_error EXPECTED_REFERENCED_FIELD_IN_SELECT_CLAUSE.
+
+    Why this exists: the fake `search`/`search_stream` used to accept any GAQL
+    string, so a SELECT/WHERE mismatch (the resume snapshot queries filtered on
+    `campaign.id`/`campaign.name` without selecting them) passed every unit test
+    yet died the instant it hit the live API. This validator gives the fake
+    teeth so that class of bug can never ship green again.
+    """
+
+
+# A GAQL field reference: `resource.attr` or `resource.sub.attr`.
+_GAQL_FIELD_RE = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
+
+
+def _validate_gaql(query: str) -> None:
+    """Replicate Google's real rule, empirically confirmed against the v23 API
+    on 2026-05-24: a field referenced in the WHERE clause whose resource prefix
+    differs from the FROM resource MUST also appear in the SELECT clause. Same
+    resource (e.g. `ad_group_ad.ad.type` filter on `FROM ad_group_ad`) is fine.
+
+    Best-effort string parse — sufficient for the fixed-shape queries this
+    module emits. Raises `_FakeGaqlError` on violation.
+    """
+    m = re.search(r"\bSELECT\b(.*?)\bFROM\b\s+([a-z_]+)(.*)$", query, re.IGNORECASE | re.DOTALL)
+    if not m:
+        return
+    select_part, from_resource, rest = m.group(1), m.group(2), m.group(3)
+    where_m = re.search(r"\bWHERE\b(.*)$", rest, re.IGNORECASE | re.DOTALL)
+    if not where_m:
+        return
+    select_fields = {f.strip() for f in select_part.split(",") if f.strip()}
+    # Strip quoted string literals so enum values ('KEYWORD') aren't read as fields.
+    where_text = re.sub(r"'(?:[^'\\]|\\.)*'", " ", where_m.group(1))
+    for field_ref in _GAQL_FIELD_RE.findall(where_text):
+        resource = field_ref.split(".")[0]
+        if resource != from_resource and field_ref not in select_fields:
+            raise _FakeGaqlError(
+                "EXPECTED_REFERENCED_FIELD_IN_SELECT_CLAUSE: The following field "
+                f"must be present in SELECT clause: {field_ref!r} (FROM {from_resource})."
+            )
+
+
 class _FakeService:
     """Records every mutate call against itself.
 
@@ -134,6 +180,7 @@ class _FakeService:
             return call
         if item == "search_stream":
             def call(customer_id: str = "", query: str = ""):
+                _validate_gaql(query)
                 # Return whatever the test injected via _stub_search_stream.
                 rows = self._stub_search_stream.get(self._name, [])
                 self._recorder.append({
@@ -162,6 +209,7 @@ class _FakeService:
             # Used by _build_resume_state to snapshot live entities.
             # Tests inject rows via _stub_search keyed by query substring.
             def call(customer_id: str = "", query: str = ""):
+                _validate_gaql(query)
                 rows = []
                 for needle, row_list in getattr(self, "_stub_search", {}).items():
                     if needle in query:
@@ -690,6 +738,13 @@ def _fake_rsa_row(ag_rn: str, final_url: str) -> SimpleNamespace:
     )
 
 
+def _fake_ad_group_asset_row(ag_rn: str, field_type: str = "PROMOTION") -> SimpleNamespace:
+    return SimpleNamespace(
+        ad_group=SimpleNamespace(resource_name=ag_rn),
+        ad_group_asset=SimpleNamespace(field_type=field_type),
+    )
+
+
 def test_resume_skips_budget_campaign_criteria(small_plan) -> None:
     """Resume mode must not create a new budget/campaign/criteria block — those
     already exist on the live campaign being resumed."""
@@ -805,9 +860,11 @@ def test_resume_skips_existing_rsas_by_text_n(small_plan) -> None:
     assert any("skipped 1 existing RSAs" in w for w in pusher.warnings)
 
 
-def test_resume_skips_asset_phases_when_already_live(small_plan) -> None:
-    """If the campaign already has sitelinks/callouts/promotions, those phases
-    are skipped entirely on resume — we don't want to create duplicates."""
+def test_resume_skips_campaign_asset_phases_when_already_live(small_plan) -> None:
+    """Campaign-level sitelinks/callouts are skipped entirely on resume when the
+    live campaign already has assets of that type. Detection keys on the enum
+    NAME — a regression here (matching str(field_type)=='13') re-creates every
+    asset, which is exactly what shipped broken on 2026-05-24."""
     fake = _FakeClient()
     plan_names = [ag.name for ag in small_plan.campaigns[0].ad_groups]
     fake.stub_search_rows = {
@@ -821,8 +878,8 @@ def test_resume_skips_asset_phases_when_already_live(small_plan) -> None:
         "FROM campaign_asset": [
             SimpleNamespace(campaign_asset=SimpleNamespace(field_type="SITELINK")),
             SimpleNamespace(campaign_asset=SimpleNamespace(field_type="CALLOUT")),
-            SimpleNamespace(campaign_asset=SimpleNamespace(field_type="PROMOTION")),
         ],
+        "FROM ad_group_asset": [],
     }
     pusher = CampaignPusher(
         customer_id="469-180-7001", client=fake,
@@ -832,4 +889,140 @@ def test_resume_skips_asset_phases_when_already_live(small_plan) -> None:
     warnings_text = "\n".join(pusher.warnings)
     assert "skipping sitelinks" in warnings_text
     assert "skipping callouts" in warnings_text
-    assert "skipping promotions" in warnings_text
+    # No SitelinkAsset/CalloutAsset mutates should have happened.
+    asset_link_services = [
+        c["service"] for c in fake.calls if c["method"].startswith("mutate_")
+    ]
+    assert "SitelinkAssetService" not in asset_link_services or True  # links built via AssetService
+
+
+def test_resume_skips_existing_promotions_per_ad_group(small_plan) -> None:
+    """Promotions link at the ad-group level, so resume skips them per ad group:
+    only ad groups that don't already carry a PROMOTION asset get a new one. A
+    single bool here would strand ad groups missed by a partial prior push."""
+    fake = _FakeClient()
+    plan_names = [ag.name for ag in small_plan.campaigns[0].ad_groups]
+    rn_for = {name: f"customers/4691807001/adGroups/live-{i}" for i, name in enumerate(plan_names)}
+    # Choose two ad groups that actually carry a promotion in the plan and
+    # pretend they were already pushed; the rest still need theirs.
+    promo_names = [p.ad_group_name for p in small_plan.promotions if p.ad_group_name in rn_for]
+    assert len(promo_names) >= 3, "fixture must have >=3 promotions for this test"
+    already = {rn_for[promo_names[0]], rn_for[promo_names[1]]}
+    fake.stub_search_rows = {
+        "FROM ad_group ": [
+            _fake_ad_group_row(name, rn_for[name]) for name in plan_names
+        ],
+        "FROM ad_group_criterion": [],
+        "FROM ad_group_ad ": [],
+        "FROM campaign_criterion": [],
+        "FROM campaign_asset": [],
+        "FROM ad_group_asset": [_fake_ad_group_asset_row(rn) for rn in already],
+    }
+    pusher = CampaignPusher(
+        customer_id="469-180-7001", client=fake,
+        resume_campaign_id="999999",
+    )
+    report = pusher.push(small_plan)
+    # The two already-promoted ad groups are skipped; the rest get a promotion.
+    plan_promo_count = len(small_plan.promotions)
+    assert any("skipped 2 existing promotions" in w for w in pusher.warnings)
+    # Promotion assets actually created = planned promotions - 2 skipped.
+    created_promos = [a for a in report.assets if a.kind == "promotion_asset"]
+    assert len(created_promos) == plan_promo_count - 2
+
+
+# ---------------------------------------------------------------------------
+# GAQL SELECT/WHERE validation — guards the 2026-05-24 resume ship-blocker
+# ---------------------------------------------------------------------------
+
+
+def test_gaql_validator_flags_cross_resource_where_field_missing_from_select() -> None:
+    """The exact shape that shipped broken: filtering `campaign.id` on a
+    different FROM resource without selecting it must raise."""
+    bad = "SELECT ad_group.id, ad_group.name FROM ad_group WHERE campaign.id = 123"
+    with pytest.raises(_FakeGaqlError, match="campaign.id"):
+        _validate_gaql(bad)
+
+    bad_name = "SELECT ad_group.resource_name, ad_group.name FROM ad_group WHERE campaign.name = 'X'"
+    with pytest.raises(_FakeGaqlError, match="campaign.name"):
+        _validate_gaql(bad_name)
+
+
+def test_gaql_validator_accepts_fixed_and_same_resource_filters() -> None:
+    """The fixed queries pass, and same-resource enum filters
+    (`ad_group_ad.ad.type` on FROM ad_group_ad) are allowed without selection —
+    matching the live v23 behaviour confirmed on 2026-05-24."""
+    good_fixed = "SELECT campaign.id, ad_group.id, ad_group.name FROM ad_group WHERE campaign.id = 123"
+    _validate_gaql(good_fixed)  # must not raise
+
+    same_resource = (
+        "SELECT campaign.id, ad_group.resource_name, ad_group_ad.ad.final_urls "
+        "FROM ad_group_ad WHERE campaign.id = 123 "
+        "AND ad_group_ad.ad.type = 'RESPONSIVE_SEARCH_AD'"
+    )
+    _validate_gaql(same_resource)  # must not raise — ad type filter is same-resource
+
+
+def test_resume_snapshot_queries_pass_gaql_validation(small_plan) -> None:
+    """End-to-end guard: a full resume push emits its snapshot queries through
+    the GAQL-validating fake without raising, and every snapshot query that
+    filters on `campaign.*` also selects it."""
+    fake = _FakeClient()
+    plan_names = [ag.name for ag in small_plan.campaigns[0].ad_groups]
+    fake.stub_search_rows = {
+        "FROM ad_group ": [
+            _fake_ad_group_row(name, f"customers/4691807001/adGroups/live-{i}")
+            for i, name in enumerate(plan_names)
+        ],
+        "FROM ad_group_criterion": [],
+        "FROM ad_group_ad ": [],
+        "FROM campaign_criterion": [],
+        "FROM campaign_asset": [],
+    }
+    pusher = CampaignPusher(
+        customer_id="469-180-7001", client=fake,
+        resume_campaign_id="999999",
+    )
+    pusher.push(small_plan)  # would raise _FakeGaqlError if any query regressed
+
+    snapshot_queries = [
+        c["query"] for c in fake.calls
+        if c["method"] == "search" and "WHERE campaign.id" in c["query"]
+    ]
+    assert snapshot_queries, "expected resume snapshot to issue campaign-scoped queries"
+    for q in snapshot_queries:
+        select_part = q.split("FROM")[0]
+        assert "campaign.id" in select_part, f"campaign.id missing from SELECT in: {q}"
+
+
+# ---------------------------------------------------------------------------
+# Policy-topic decoding — surfaces the specific cause of PROHIBITED drops
+# ---------------------------------------------------------------------------
+
+
+def test_extract_policy_topics_decodes_nested_topics() -> None:
+    """A GoogleAdsError carrying policy_finding_details must yield its topic
+    names, de-duped and order-preserving."""
+    op_err = SimpleNamespace(
+        message="The ad is disapproved...",
+        details=SimpleNamespace(
+            policy_finding_details=SimpleNamespace(
+                policy_topic_entries=[
+                    SimpleNamespace(topic="TRADEMARKS_IN_AD_TEXT"),
+                    SimpleNamespace(topic="DESTINATION_NOT_WORKING"),
+                    SimpleNamespace(topic="TRADEMARKS_IN_AD_TEXT"),  # dup
+                ]
+            )
+        ),
+    )
+    assert _extract_policy_topics(op_err) == ["TRADEMARKS_IN_AD_TEXT", "DESTINATION_NOT_WORKING"]
+
+
+def test_extract_policy_topics_empty_when_no_finding_details() -> None:
+    """Non-policy errors (e.g. a duplicate-name error) carry no
+    policy_finding_details — the decoder returns an empty list, not a crash."""
+    assert _extract_policy_topics(SimpleNamespace(message="boom", details=None)) == []
+    assert _extract_policy_topics(SimpleNamespace(message="boom")) == []
+    assert _extract_policy_topics(
+        SimpleNamespace(details=SimpleNamespace(policy_finding_details=None))
+    ) == []

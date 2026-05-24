@@ -165,6 +165,30 @@ def _batched(iterable: Iterable, size: int):
         yield batch
 
 
+def _extract_policy_topics(op_err) -> list[str]:
+    """Pull the specific policy topic names out of a single GoogleAdsError's
+    `details.policy_finding_details.policy_topic_entries`. Returns a de-duped,
+    order-preserving list of topic strings (e.g. ["TRADEMARKS_IN_AD_TEXT"]).
+    Empty list when the error carries no policy-finding detail.
+
+    Google nests the actionable cause two layers below the human-readable
+    message; without this the operator only ever sees "...type PROHIBITED..."
+    and can't tell a fixable copy pattern from test-account noise.
+    """
+    topics: list[str] = []
+    details = getattr(op_err, "details", None)
+    if details is None:
+        return topics
+    pfd = getattr(details, "policy_finding_details", None)
+    if pfd is None:
+        return topics
+    for entry in getattr(pfd, "policy_topic_entries", []) or []:
+        topic = getattr(entry, "topic", "")
+        if topic and topic not in topics:
+            topics.append(topic)
+    return topics
+
+
 def _safe_mutate(
     call,
     customer_id: str,
@@ -257,6 +281,14 @@ def _safe_mutate(
                                 if getattr(elt, "field_name", "") == "operations":
                                     idx = f" op[{elt.index}]"
                                     break
+                        # Decode the specific policy topic(s) when present. Google's
+                        # generic message ("...policy topics of type PROHIBITED...")
+                        # is useless on its own; the actionable topic name lives in
+                        # error_details.policy_finding_details.policy_topic_entries[].topic
+                        # (e.g. "TRADEMARKS_IN_AD_TEXT", "DESTINATION_NOT_WORKING").
+                        topics = _extract_policy_topics(op_err)
+                        if topics:
+                            msg = f"{msg} [policy_topics: {', '.join(topics)}]"
                         warnings_sink.append(f"{label}{idx}: {msg}")
                 except Exception:
                     # If we can't parse the failure detail, surface the
@@ -360,6 +392,11 @@ class _ResumeState:
     has_callouts: bool = False
     has_promotions: bool = False
     has_lead_forms: bool = False
+    # Promotions link at the AD GROUP level, so they're skipped per-ad-group
+    # (a quota-kill mid-promotions otherwise strands ad groups that never got
+    # one — a single bool would skip them forever). Resource names of ad groups
+    # that already carry a PROMOTION asset.
+    existing_promotion_ag_rns: set[str] = field(default_factory=set)
 
 
 def _build_resume_state(client, customer_id: str, campaign_id: str) -> _ResumeState:
@@ -374,7 +411,7 @@ def _build_resume_state(client, customer_id: str, campaign_id: str) -> _ResumeSt
     for row in ga.search(
         customer_id=customer_id,
         query=(
-            "SELECT ad_group.id, ad_group.name, ad_group.resource_name "
+            "SELECT campaign.id, ad_group.id, ad_group.name, ad_group.resource_name "
             f"FROM ad_group WHERE campaign.id = {campaign_id}"
         ),
     ):
@@ -388,7 +425,7 @@ def _build_resume_state(client, customer_id: str, campaign_id: str) -> _ResumeSt
     for row in ga.search(
         customer_id=customer_id,
         query=(
-            "SELECT ad_group.resource_name, ad_group_criterion.keyword.text, "
+            "SELECT campaign.id, ad_group.resource_name, ad_group_criterion.keyword.text, "
             "ad_group_criterion.keyword.match_type, ad_group_criterion.type "
             f"FROM ad_group_criterion WHERE campaign.id = {campaign_id} "
             "AND ad_group_criterion.type = 'KEYWORD'"
@@ -405,7 +442,7 @@ def _build_resume_state(client, customer_id: str, campaign_id: str) -> _ResumeSt
     for row in ga.search(
         customer_id=customer_id,
         query=(
-            "SELECT ad_group.resource_name, ad_group_ad.ad.final_urls "
+            "SELECT campaign.id, ad_group.resource_name, ad_group_ad.ad.final_urls "
             f"FROM ad_group_ad WHERE campaign.id = {campaign_id} "
             "AND ad_group_ad.ad.type = 'RESPONSIVE_SEARCH_AD'"
         ),
@@ -423,29 +460,47 @@ def _build_resume_state(client, customer_id: str, campaign_id: str) -> _ResumeSt
     crit_rows = list(ga.search(
         customer_id=customer_id,
         query=(
-            "SELECT campaign_criterion.resource_name "
+            "SELECT campaign.id, campaign_criterion.resource_name "
             f"FROM campaign_criterion WHERE campaign.id = {campaign_id}"
         ),
     ))
     state.has_campaign_criteria = len(crit_rows) > 0
 
-    # Campaign-level assets — sitelinks / callouts / promotions / lead forms
+    # Campaign-level assets — sitelinks / callouts / lead forms. Match on the
+    # enum NAME (`field_type.name == "SITELINK"`), NOT str(field_type): the
+    # latter yields the numeric enum value ("13") and never matches "SITELINK",
+    # which silently defeated every asset-skip and re-created all assets (and
+    # 951 duplicate asset links) on each resume. `.name` is the canonical
+    # google-ads SDK accessor; the str() fallback keeps fakes/tests working.
     for row in ga.search(
         customer_id=customer_id,
         query=(
-            "SELECT campaign_asset.field_type "
+            "SELECT campaign.id, campaign_asset.field_type "
             f"FROM campaign_asset WHERE campaign.id = {campaign_id}"
         ),
     ):
-        ft = str(row.campaign_asset.field_type)
-        if "SITELINK" in ft:
+        ft = row.campaign_asset.field_type
+        name = getattr(ft, "name", None) or str(ft)
+        if name == "SITELINK":
             state.has_sitelinks = True
-        elif "CALLOUT" in ft:
+        elif name == "CALLOUT":
             state.has_callouts = True
-        elif "PROMOTION" in ft:
-            state.has_promotions = True
-        elif "LEAD_FORM" in ft:
+        elif name == "LEAD_FORM":
             state.has_lead_forms = True
+
+    # Promotions link at the AD GROUP level (ad_group_asset), not the campaign
+    # level — so they're invisible to the campaign_asset query above and must be
+    # snapshotted here, per ad group, for precise resume skipping.
+    for row in ga.search(
+        customer_id=customer_id,
+        query=(
+            "SELECT campaign.id, ad_group.resource_name, ad_group_asset.field_type "
+            f"FROM ad_group_asset WHERE campaign.id = {campaign_id} "
+            "AND ad_group_asset.field_type = 'PROMOTION'"
+        ),
+    ):
+        state.existing_promotion_ag_rns.add(row.ad_group.resource_name)
+    state.has_promotions = bool(state.existing_promotion_ag_rns)
 
     return state
 
@@ -590,12 +645,17 @@ class CampaignPusher:
                     else:
                         raise
 
-            # Promotion extensions targeted at this campaign's ad groups
-            if resume_state is None or not resume_state.has_promotions:
-                campaign_promotions = [p for p in plan.promotions if p.campaign_name == campaign.name]
-                self._push_promotions(client, clean_id, campaign_promotions, ag_rn_by_name, campaign_rn, report)
-            else:
-                self.warnings.append("Resume: skipping promotions (already live)")
+            # Promotion extensions targeted at this campaign's ad groups.
+            # Skipped PER AD GROUP on resume (not all-or-nothing) so a partial
+            # promotions phase resumes cleanly instead of stranding ad groups.
+            campaign_promotions = [p for p in plan.promotions if p.campaign_name == campaign.name]
+            skip_ag_rns = (
+                resume_state.existing_promotion_ag_rns if resume_state is not None else None
+            )
+            self._push_promotions(
+                client, clean_id, campaign_promotions, ag_rn_by_name,
+                campaign_rn, report, skip_ag_rns=skip_ag_rns,
+            )
 
         report.elapsed_seconds = time.perf_counter() - start
         logger.info("Push complete: %s", report.summary())
@@ -667,7 +727,7 @@ class CampaignPusher:
             # Escape single quotes for safety in the GAQL string literal.
             escaped = campaign_name.replace("'", "\\'")
             query = (
-                "SELECT ad_group.resource_name, ad_group.name "
+                "SELECT campaign.name, ad_group.resource_name, ad_group.name "
                 "FROM ad_group "
                 f"WHERE campaign.name = '{escaped}'"
             )
@@ -1231,6 +1291,7 @@ class CampaignPusher:
         ag_rn_by_name: dict[str, str],
         campaign_rn: str,
         report: PushReport,
+        skip_ag_rns: set[str] | None = None,
     ) -> None:
         if not promotions:
             return
@@ -1240,6 +1301,26 @@ class CampaignPusher:
                     "promotion_asset", f"dryrun:{promo.ad_group_name}", promo.ad_group_name or "",
                 ))
             return
+
+        # Resume: drop promotions whose target ad group already carries one, so
+        # we never create a duplicate asset (or its link).
+        if skip_ag_rns:
+            kept = []
+            skipped = 0
+            for promo in promotions:
+                ag_rn = ag_rn_by_name.get(promo.ad_group_name) if promo.ad_group_name else None
+                if ag_rn is not None and ag_rn in skip_ag_rns:
+                    skipped += 1
+                    continue
+                kept.append(promo)
+            if skipped:
+                self.warnings.append(
+                    f"Resume: skipped {skipped} existing promotions, "
+                    f"pushing {len(kept)} new"
+                )
+            promotions = kept
+            if not promotions:
+                return
 
         discount_enum = client.enums.PromotionExtensionDiscountModifierEnum
         occasion_enum = client.enums.PromotionExtensionOccasionEnum

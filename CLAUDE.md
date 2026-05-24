@@ -404,6 +404,37 @@ Ad-group bid_modifier distribution in the live build:
 On 2026-09-01 the same `case.yaml` regenerates with the overlays dropped:
 50%+ → 2.25×, 40-49% → 2.00×, 30-39% → 1.80× (base ladder).
 
+## Multi-day resume push (v0.3.7) — completed + hardened
+
+`sem case push <slug> --resume <campaign_id> --name-suffix " [<orig suffix>]"`
+snapshots the live campaign once and pushes only the missing entities. The
+etraveli campaign `23867614686` (469-180-7001) was completed this way across
+2026-05-22 → 05-24. Final authoritative state: 963 ad groups, 9,880 keywords,
+3,589 RSAs (3–5/ad group), 8 campaign assets (4 sitelinks + 4 callouts), 943
+ad-group promotions, PAUSED. See `.planning/v0.3.7-LIVE-PUSH.md`.
+
+**Resume gotchas (each now a regression test in `tests/test_campaign_pusher.py`):**
+- **GAQL SELECT must include every cross-resource WHERE field.** Snapshot queries
+  filter `WHERE campaign.id = X` from `ad_group`/`ad_group_ad`/etc., so they MUST
+  also `SELECT campaign.id` — else v23 raises
+  `EXPECTED_REFERENCED_FIELD_IN_SELECT_CLAUSE`. Same-resource filters
+  (`ad_group_ad.ad.type` on `FROM ad_group_ad`) don't need selecting. The test
+  fake now validates this rule.
+- **Asset-type detection uses `field_type.name`, not `str(field_type)`.** The
+  latter is the numeric enum value (`"13"`), so the old `"SITELINK" in str(...)`
+  check never matched and resume re-created all assets (951 duplicate links per
+  run). Promotions live on `ad_group_asset` (not `campaign_asset`) and are skipped
+  **per ad group** via `existing_promotion_ag_rns`.
+- **GAQL `search` reporting lags the mutate layer by many minutes** for asset
+  links — a successful removal still shows the link present. Never confirm an
+  asset mutation with `search`; use a `validate_only` remove
+  (`RESOURCE_NOT_FOUND` = gone). `scripts/dedupe_campaign_assets.py` cleans
+  duplicate links and tallies `response.results` (not the requested count).
+- **`partial_failure` errors don't carry `policy_finding_details`.**
+  `_extract_policy_topics` decodes the specific PROHIBITED topic, but only a full
+  (non-partial) mutate's `GoogleAdsException` populates it — use a `validate_only`
+  create to name the topic for the ~991 RSA variants Google rejected.
+
 ## Authentication
 
 OAuth 2.0 flow for Google Ads API access:
