@@ -524,8 +524,9 @@ def build_report(slug, customer_id, campaign_id, account, campaign, criteria,
                 "discount/seasonality bid ladder (case.yaml bid_rules) is NOT materialized "
                 "on the live campaign. Under Maximize Clicks the per-ad-group CPC is largely "
                 "ignored, so delivery isn't blocked; but before switching to a manual/target "
-                "strategy run `sem case apply-bids etraveli --name-suffix \" [2026-05-22 22:19:35]\" "
-                "--base-cpc-sek <X> --yes` to push the ladder."
+                f"strategy run `sem case apply-bids {slug} --campaign-id {campaign_id} "
+                "--name-suffix \" [2026-05-22 22:19:35]\" --base-cpc-sek <X> --yes` to push the "
+                "ladder. (--campaign-id is required because the campaign was renamed.)"
             )
 
     # ---- 4. Keywords ----

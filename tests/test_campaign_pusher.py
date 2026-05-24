@@ -261,13 +261,13 @@ class _FakeClient:
         if name.endswith("Operation"):
             return _FakeOp()
         if name == "FieldMask":
-            # FieldMask is constructed with kwargs (paths=[...])
-            def _mk(**kwargs):
-                p = _FakeProto("FieldMask")
-                for k, v in kwargs.items():
-                    setattr(p, k, v)
-                return p
-            return _mk
+            # Mirror v23 reality: there is NO get_type("FieldMask") — the real
+            # client raises ValueError. Production must use
+            # google.protobuf.field_mask_pb2.FieldMask instead. Guards against
+            # the regression that crashed the live rename/apply-bids path.
+            raise ValueError(
+                "Specified type 'FieldMask' does not exist in Google Ads API v23"
+            )
         # AdTextAsset, LeadFormField, etc. — plain protos
         return _FakeProto(name)
 
@@ -279,10 +279,16 @@ class _FakeClient:
         #   (b) populate an UPDATE FieldMask — copy_from(op.update_mask, FieldMask(paths=[...]))
         #       — the test inspects `update_mask.paths`, so we mirror the
         #       source fields onto the target.
-        # We selectively mirror only when the source name suggests a FieldMask
-        # (it has the `paths` field). Other copy_from cases stay no-op so we
-        # don't perturb existing behavior.
-        if hasattr(source, "_fields") and "paths" in getattr(source, "_fields", {}):
+        # We selectively mirror only when the source is a FieldMask (it carries
+        # `paths`). Other copy_from cases stay no-op so we don't perturb
+        # existing behavior. Production now passes a REAL
+        # google.protobuf.field_mask_pb2.FieldMask, so handle that first; the
+        # legacy fake-proto branch remains for any other caller.
+        from google.protobuf import field_mask_pb2
+
+        if isinstance(source, field_mask_pb2.FieldMask):
+            target._fields["paths"] = list(source.paths)
+        elif hasattr(source, "_fields") and "paths" in getattr(source, "_fields", {}):
             target._fields["paths"] = source._fields["paths"]
         return target
 
@@ -1026,3 +1032,27 @@ def test_extract_policy_topics_empty_when_no_finding_details() -> None:
     assert _extract_policy_topics(
         SimpleNamespace(details=SimpleNamespace(policy_finding_details=None))
     ) == []
+
+
+def test_apply_bids_by_campaign_id_is_rename_robust(small_plan) -> None:
+    """With --campaign-id, the live lookup filters by campaign.id (SELECT must
+    include campaign.id per the v23 GAQL rule), so a campaign that was RENAMED
+    after the push still matches — name-based lookup would miss."""
+    fake = _FakeClient()
+    plan_ag_names = [ag.name for c in small_plan.campaigns for ag in c.ad_groups]
+    fake.stub_ad_groups = [
+        {"name": name, "resource_name": f"customers/123/adGroups/{i + 1}"}
+        for i, name in enumerate(plan_ag_names)
+    ]
+    pusher = CampaignPusher(customer_id="123-456-7890", client=fake)
+    report = pusher.apply_bids(small_plan, base_cpc_micros=4_000_000, campaign_id="23867614686")
+
+    # All ad groups matched (campaign found by ID, ad groups by name).
+    assert len(report.applied) == len(plan_ag_names)
+    assert not report.skipped
+    search_calls = [c for c in fake.calls if c["method"] == "search_stream"]
+    assert len(search_calls) == 1
+    q = search_calls[0]["query"]
+    assert "WHERE campaign.id = 23867614686" in q
+    assert "SELECT campaign.id" in q          # cross-resource WHERE field is selected
+    assert "campaign.name" not in q           # name-based lookup not used

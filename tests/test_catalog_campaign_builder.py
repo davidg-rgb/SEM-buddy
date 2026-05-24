@@ -269,3 +269,68 @@ def test_legacy_build_campaigns_still_works(monkeypatch) -> None:
     keyword_groups = {"renovering": [{"text": "renovering stockholm", "match_type": "PHRASE"}]}
     plan = build_campaigns(client, keyword_groups)
     assert len(plan.campaigns) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Case-driven extension overrides (sitelinks / callouts)
+# ---------------------------------------------------------------------------
+
+def test_no_override_keeps_generic_language_defaults(monkeypatch) -> None:
+    monkeypatch.setenv("SEM_DISABLE_LLM", "1")
+    plan = build_campaigns_from_catalog(_en_client(), _load_products(), _build_config())
+    # Fallback path: the builder's generic English defaults still apply.
+    assert any(s.text == "About Us" for s in plan.sitelinks)
+    assert any(c.text == "Free Quote" for c in plan.callouts)
+
+
+def test_case_overrides_replace_generic_extensions(monkeypatch) -> None:
+    monkeypatch.setenv("SEM_DISABLE_LLM", "1")
+    sitelinks_override = [
+        {
+            "text": "Free 24h Cancellation",
+            "desc1": "Cancel within 24 hours",
+            "desc2": "Stress-free booking",
+            "final_url": "https://www.flightnetwork.com/rf/cancellation-protection",
+        },
+        {
+            "text": "24/7 Customer Support",
+            "desc1": "We're here to help anytime",
+            "desc2": "Real people, real help",
+            "final_url": "https://www.flightnetwork.com/rf/contact-us",
+        },
+    ]
+    callouts_override = ["Compare 800+ airlines", "Free 24h cancellation"]
+    plan = build_campaigns_from_catalog(
+        _en_client(), _load_products(), _build_config(),
+        sitelinks_override=sitelinks_override,
+        callouts_override=callouts_override,
+    )
+    texts = {s.text for s in plan.sitelinks}
+    assert texts == {"Free 24h Cancellation", "24/7 Customer Support"}
+    # The generic defaults must be gone, not appended.
+    assert "About Us" not in texts
+    assert [c.text for c in plan.callouts] == callouts_override
+    assert "Free Quote" not in {c.text for c in plan.callouts}
+    # URLs survive as real flightnetwork.com pages.
+    assert any("flightnetwork.com/rf/contact-us" in str(s.final_url) for s in plan.sitelinks)
+
+
+def test_case_yaml_parses_sitelinks_and_callouts() -> None:
+    from src.cases.config import CaseConfig
+    case = CaseConfig.model_validate({
+        "language": "en",
+        "url_templates": {"primary": "https://x.com/?to={sku}&text={N}"},
+        "extensions": {
+            "sitelinks": [
+                {"text": "Refunds Made Easy", "desc1": "Manage your booking online",
+                 "desc2": "Hassle-free refunds",
+                 "final_url": "https://www.flightnetwork.com/rf/refunds"},
+            ],
+            "callouts": ["Price-match guarantee", "No hidden booking fees"],
+        },
+    })
+    assert case.extensions.sitelinks[0].text == "Refunds Made Easy"
+    assert case.extensions.callouts == ["Price-match guarantee", "No hidden booking fees"]
+    # round-trips into the override dict shape the builder consumes
+    dumped = [s.model_dump(mode="json") for s in case.extensions.sitelinks]
+    assert dumped[0]["final_url"].endswith("/rf/refunds")

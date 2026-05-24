@@ -284,6 +284,15 @@ def case_apply_bids(
             "so the ad-group name lookup hits the live entities."
         ),
     ),
+    campaign_id: str = typer.Option(
+        "",
+        "--campaign-id",
+        help=(
+            "Identify the live campaign by ID instead of name. Required if the "
+            "campaign was RENAMED after the push (e.g. a machine suffix stripped "
+            "for client presentation). Ad groups are still matched by --name-suffix."
+        ),
+    ),
     base_cpc_sek: float = typer.Option(
         5.0,
         "--base-cpc-sek",
@@ -377,7 +386,10 @@ def case_apply_bids(
         name_suffix=name_suffix,
     )
     try:
-        report = pusher.apply_bids(plan, base_cpc_micros=base_micros)
+        report = pusher.apply_bids(
+            plan, base_cpc_micros=base_micros,
+            campaign_id=(campaign_id or None),
+        )
     except Exception as exc:
         rprint(f"[red]apply_bids failed: {exc}[/red]")
         raise typer.Exit(1)

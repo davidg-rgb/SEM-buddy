@@ -161,6 +161,10 @@ def run_case(
         promotion_end_date=case.extensions.promotions.end_date,
         promotion_occasion=case.extensions.promotions.occasion,
         money_currency=case.extensions.promotions.money_currency,
+        sitelinks_override=(
+            [s.model_dump(mode="json") for s in case.extensions.sitelinks] or None
+        ),
+        callouts_override=list(case.extensions.callouts) or None,
     )
 
     out_dir = CLIENTS_DIR / slug / output_subdir / "catalog"

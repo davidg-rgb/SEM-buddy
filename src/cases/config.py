@@ -57,9 +57,24 @@ class LeadFormConfig(BaseModel):
     asset_name: str = ""
 
 
+class SitelinkConfig(BaseModel):
+    """A single sitelink. Limits mirror src.models.campaign.Sitelink and
+    Google's RSA sitelink-asset constraints (link text ≤25, descriptions ≤35)."""
+
+    text: str = Field(max_length=25)
+    desc1: str = Field(default="", max_length=35)
+    desc2: str = Field(default="", max_length=35)
+    final_url: HttpUrl
+
+
 class ExtensionsConfig(BaseModel):
     promotions: PromotionsConfig = Field(default_factory=PromotionsConfig)
     lead_form: LeadFormConfig | None = None
+    # When non-empty, these OVERRIDE the builder's generic per-language defaults
+    # (_generate_extensions). Lets a case ship client-specific, on-brand
+    # sitelinks/callouts with real landing-page URLs.
+    sitelinks: list[SitelinkConfig] = Field(default_factory=list)
+    callouts: list[str] = Field(default_factory=list)
 
 
 class AccountConfig(BaseModel):
@@ -151,5 +166,6 @@ __all__ = [
     "ExtensionsConfig",
     "PromotionsConfig",
     "LeadFormConfig",
+    "SitelinkConfig",
     "AccountConfig",
 ]

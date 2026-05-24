@@ -623,6 +623,8 @@ def build_campaigns_from_catalog(
     promotion_end_date: date | None = None,
     promotion_occasion: str | None = None,
     money_currency: str = "SEK",
+    sitelinks_override: list[dict] | None = None,
+    callouts_override: list[str] | None = None,
     today: date | None = None,
 ) -> CampaignPlan:
     """End-to-end catalog build: structure → bid rules → promotions → lead forms → extensions.
@@ -649,8 +651,18 @@ def build_campaigns_from_catalog(
         # Catalog campaigns inherit the client's geo list (no geo partitioning)
         campaign.geo_targets = client.geographic_targets
 
-    # Extensions
-    sitelinks, callouts, snippets, call_extensions = _generate_extensions(client)
+    # Extensions. Case-supplied sitelinks/callouts OVERRIDE the generic
+    # per-language defaults; structured snippets + call extensions still come
+    # from the client-derived generator either way.
+    default_sitelinks, default_callouts, snippets, call_extensions = _generate_extensions(client)
+    if sitelinks_override:
+        sitelinks = [Sitelink(**s) for s in sitelinks_override]
+    else:
+        sitelinks = default_sitelinks
+    if callouts_override:
+        callouts = [Callout(text=t) for t in callouts_override]
+    else:
+        callouts = default_callouts
 
     promotions: list[PromotionExtension] = []
     if build_config.promotion_enabled and build_config.url_templates.get("primary"):

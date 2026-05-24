@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import TYPE_CHECKING, Any, Iterable
 
+from google.protobuf import field_mask_pb2
+
 from src.apis.errors import GoogleAdsApiError
 from src.apis.google_ads import _normalize_customer_id, _wrap_google_ads_error
 from src.models.campaign import (
@@ -670,6 +672,7 @@ class CampaignPusher:
         plan: CampaignPlan,
         *,
         base_cpc_micros: int = 5_000_000,
+        campaign_id: str | None = None,
     ) -> "BidApplyReport":
         """Apply today's bid_modifier plan to the LIVE campaign in-place.
 
@@ -682,6 +685,12 @@ class CampaignPusher:
         campaign with the same names this plan uses — which it does, since
         both flow from the same case.yaml. If `name_suffix` was used on
         creation, pass the same suffix here so the lookup hits.
+
+        `campaign_id` identifies the campaign by ID instead of by name. Pass
+        it when the live campaign was RENAMED after the push (e.g. a machine
+        suffix was stripped for client presentation) — name-based lookup would
+        then miss. Ad-group matching still uses `name_suffix`, so the ad groups
+        themselves may keep their original suffixed names.
 
         Returns a `BidApplyReport` listing which ad groups would be
         updated, by how much. In `dry_run` mode no API calls are made.
@@ -719,22 +728,34 @@ class CampaignPusher:
         ad_group_service = client.get_service("AdGroupService")
         ga_service = client.get_service("GoogleAdsService")
 
-        # 1. Look up live ad-group resource names by name (one query per
-        # campaign — cheap, but batchable if scale grows).
+        # 1. Look up live ad-group resource names. Prefer campaign ID
+        # (rename-robust); fall back to campaign name.
         rn_by_name: dict[str, str] = {}
-        for campaign in plan.campaigns:
-            campaign_name = self._unique_name(campaign.name)
-            # Escape single quotes for safety in the GAQL string literal.
-            escaped = campaign_name.replace("'", "\\'")
+        if campaign_id is not None:
+            # GAQL rule: a cross-resource WHERE field must be in SELECT, so
+            # `WHERE campaign.id` requires `SELECT campaign.id`.
             query = (
-                "SELECT campaign.name, ad_group.resource_name, ad_group.name "
+                "SELECT campaign.id, ad_group.resource_name, ad_group.name "
                 "FROM ad_group "
-                f"WHERE campaign.name = '{escaped}'"
+                f"WHERE campaign.id = {campaign_id}"
             )
-            stream = ga_service.search_stream(customer_id=clean_id, query=query)
-            for batch in stream:
+            for batch in ga_service.search_stream(customer_id=clean_id, query=query):
                 for row in batch.results:
                     rn_by_name[row.ad_group.name] = row.ad_group.resource_name
+        else:
+            for campaign in plan.campaigns:
+                campaign_name = self._unique_name(campaign.name)
+                # Escape single quotes for safety in the GAQL string literal.
+                escaped = campaign_name.replace("'", "\\'")
+                query = (
+                    "SELECT campaign.name, ad_group.resource_name, ad_group.name "
+                    "FROM ad_group "
+                    f"WHERE campaign.name = '{escaped}'"
+                )
+                stream = ga_service.search_stream(customer_id=clean_id, query=query)
+                for batch in stream:
+                    for row in batch.results:
+                        rn_by_name[row.ad_group.name] = row.ad_group.resource_name
 
         # 2. Compose mutate operations, skipping ad groups not found.
         ops = []
@@ -749,9 +770,11 @@ class CampaignPusher:
             ag_proto.resource_name = rn
             ag_proto.cpc_bid_micros = update.new_cpc_micros
             # FieldMask: cpc_bid_micros only — leave everything else alone.
+            # NB: google-ads v23 has NO get_type("FieldMask") — it raises. Use
+            # the protobuf type directly.
             client.copy_from(
                 op.update_mask,
-                client.get_type("FieldMask")(paths=["cpc_bid_micros"]),
+                field_mask_pb2.FieldMask(paths=["cpc_bid_micros"]),
             )
             ops.append(op)
             applied.append(update)
