@@ -410,8 +410,8 @@ On 2026-09-01 the same `case.yaml` regenerates with the overlays dropped:
 snapshots the live campaign once and pushes only the missing entities. The
 etraveli campaign `23867614686` (469-180-7001) was completed this way across
 2026-05-22 → 05-24. Final authoritative state: 963 ad groups, 9,880 keywords,
-3,589 RSAs (3–5/ad group), 8 campaign assets (4 sitelinks + 4 callouts), 943
-ad-group promotions, PAUSED. See `.planning/v0.3.7-LIVE-PUSH.md`.
+**4,580 RSAs (100%, 4–5/ad group)**, 8 campaign assets (4 sitelinks + 4 callouts),
+943 ad-group promotions, PAUSED. See `.planning/v0.3.7-LIVE-PUSH.md`.
 
 **Resume gotchas (each now a regression test in `tests/test_campaign_pusher.py`):**
 - **GAQL SELECT must include every cross-resource WHERE field.** Snapshot queries
@@ -432,8 +432,21 @@ ad-group promotions, PAUSED. See `.planning/v0.3.7-LIVE-PUSH.md`.
   duplicate links and tallies `response.results` (not the requested count).
 - **`partial_failure` errors don't carry `policy_finding_details`.**
   `_extract_policy_topics` decodes the specific PROHIBITED topic, but only a full
-  (non-partial) mutate's `GoogleAdsException` populates it — use a `validate_only`
-  create to name the topic for the ~991 RSA variants Google rejected.
+  (non-partial) mutate's `GoogleAdsException` populates it — so
+  `scripts/diagnose_rsa_policy.py` does a `validate_only` create to name the topic.
+
+**RSA content fixes that recovered the 991 rejected variants → 4,580/4,580
+(each guarded in `tests/test_rsa_variants.py`):**
+- **No decorative symbols (Google RSA SYMBOLS policy).** The `★` (U+2605) in the
+  Trustpilot social-proof copy got the social_proof variant of all 963 ad groups
+  rejected (963 of 991). Replaced with `4.5/5`. The guard bans Unicode category
+  `So`/`Sk` (stars, ✓, emoji) in patterns + generated copy while allowing
+  currency `$`, `+`, `/` and accented destination names. Pattern pack → v4.2.
+- **No duplicate headlines within an RSA** ("Assets are duplicated across
+  operations"). The discount force-injection in `generate_headlines_for_variant`
+  dedup'd on raw text while `_add` dedup'd on `text.casefold()`, so a case-variant
+  pattern headline duplicated the forced "Save X% on {name}" line on 44 long-name
+  destinations. All force-injection dedup is now `.casefold()`.
 
 ## Authentication
 

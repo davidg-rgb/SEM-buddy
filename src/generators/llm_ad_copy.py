@@ -142,7 +142,7 @@ _VARIANT_PROMPTS: dict[str, dict[str, str]] = {
         "lever": "authority + social proof + risk reversal",
         "instruction": (
             "Use only REAL proof points: 800+ airlines, 1.5M+ travelers/year, "
-            "Trustpilot 4.5★, IATA-accredited, 24h free cancellation. "
+            "Trustpilot 4.5/5, IATA-accredited, 24h free cancellation. "
             "DO NOT invent or imply ATOL, ABTA, or other UK/EU consumer "
             "protection schemes the agency is not under. No 'top-rated' or "
             "'best-in-class' adjective puffery. Include a refund/cancel mention."

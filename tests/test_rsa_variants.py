@@ -275,6 +275,110 @@ def test_full_catalog_emits_three_to_five_variants_per_ag(monkeypatch) -> None:
         )
 
 
+# ---------------------------------------------------------------------------
+# Prohibited-symbol guard — Google RSA SYMBOLS policy
+# ---------------------------------------------------------------------------
+#
+# The BLACK STAR (U+2605) in the Trustpilot social-proof lines ("4.5* on
+# Trustpilot") tripped Google's SYMBOLS prohibition and got the social_proof
+# variant of all 963 etraveli ad groups rejected at create time (2026-05-24).
+# Google bans DECORATIVE symbols (Unicode category "So": stars, checkmarks,
+# emoji) but allows currency ($ = Sc), math (+ = Sm), punctuation (/ % = Po),
+# and accented / non-Latin letters in destination names. So the rule is:
+# no character of category "So" (or modifier-symbol "Sk") may appear in copy.
+
+
+def _prohibited_symbol(text: str) -> str | None:
+    import unicodedata
+    for ch in text:
+        if unicodedata.category(ch) in ("So", "Sk"):
+            return ch
+    return None
+
+
+def test_no_duplicate_headlines_in_long_name_discount_variant(monkeypatch) -> None:
+    """Google rejects an RSA whose headlines aren't all distinct ("Assets are
+    duplicated across operations"). The discount force-injection stored its
+    dedup key raw while `_add` stored it casefolded, so a pattern headline like
+    "Save 28% on Thiruvananthapuram" slipped past the forced line and duplicated
+    it — on 44 long-name destinations (2026-05-24). Headlines must be unique
+    case-insensitively across every variant."""
+    monkeypatch.setenv("SEM_DISABLE_LLM", "1")
+    client = _en_client()
+    # Long names + discounts — the exact shape that produced duplicates.
+    products = [
+        Product(sku="TRV", name="Thiruvananthapuram", attributes={"from_price": 410.0, "discount_pct": 0.28}),
+        Product(sku="UUS", name="Yuzhno-Sakhalinsk", attributes={"from_price": 380.0, "discount_pct": 0.25}),
+        Product(sku="GPS", name="Galapagos Islands", attributes={"from_price": 690.0, "discount_pct": 0.44}),
+    ]
+    for p in products:
+        variants = generate_rsa_variants(
+            p.name, client, [f"flights to {p.name}"],
+            f"https://www.flightnetwork.com/?to={p.sku}&text=1",
+            product=p,
+        )
+        for v in variants:
+            texts = [h.text.casefold() for h in v.headlines]
+            assert len(texts) == len(set(texts)), (
+                f"Duplicate headline in {p.name} {v.role}: "
+                f"{[t for t, n in __import__('collections').Counter(texts).items() if n > 1]}"
+            )
+
+
+def test_pattern_pool_has_no_prohibited_symbols() -> None:
+    """The raw English pattern pool must not embed decorative symbols — the
+    direct source of the 2026-05-24 SYMBOLS rejection."""
+    import json
+    pack = Path(__file__).parent.parent / "data" / "en" / "ad_copy_patterns.json"
+    data = json.loads(pack.read_text(encoding="utf-8"))
+
+    offenders: list[str] = []
+
+    def walk(node):
+        if isinstance(node, str):
+            bad = _prohibited_symbol(node)
+            if bad:
+                offenders.append(f"U+{ord(bad):04X} in {node!r}")
+        elif isinstance(node, dict):
+            for v in node.values():
+                walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v)
+
+    walk(data)
+    assert not offenders, "Prohibited symbols in ad_copy_patterns.json:\n" + "\n".join(offenders)
+
+
+def test_generated_rsa_copy_has_no_prohibited_symbols(monkeypatch) -> None:
+    """Generated headlines + descriptions (incl. the Trustpilot social_proof
+    variant) must be free of decorative symbols. Currency/punctuation/accented
+    destination names are fine — only category So/Sk is rejected."""
+    monkeypatch.setenv("SEM_DISABLE_LLM", "1")
+    client = _en_client()
+    # Cover a discount + a zero-discount product (the latter still emits the
+    # social_proof variant that carried the star), plus an accented name to
+    # prove legitimate non-ASCII letters are NOT flagged.
+    products = [
+        Product(sku="BKK", name="Bangkok", attributes={"from_price": 299.0, "discount_pct": 0.38}),
+        Product(sku="NYC", name="New York City", attributes={"from_price": 450.0, "discount_pct": 0.0}),
+        Product(sku="GRU", name="São Paulo", attributes={"from_price": 510.0, "discount_pct": 0.12}),
+    ]
+    for p in products:
+        variants = generate_rsa_variants(
+            p.name, client, [f"flights to {p.name}"],
+            f"https://www.flightnetwork.com/?to={p.sku}&text=1",
+            product=p,
+        )
+        for v in variants:
+            for asset in list(v.headlines) + list(v.descriptions):
+                bad = _prohibited_symbol(asset.text)
+                assert bad is None, (
+                    f"Prohibited symbol U+{ord(bad):04X} in {p.name} "
+                    f"{v.role} copy: {asset.text!r}"
+                )
+
+
 def test_every_discounted_destination_has_discount_variant(monkeypatch) -> None:
     """Contract: every product with discount_pct>0 must have ≥1 RSA whose text
     contains the discount percent. The user's brief is explicit: at least one

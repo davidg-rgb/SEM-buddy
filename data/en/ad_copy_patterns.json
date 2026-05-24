@@ -1,8 +1,8 @@
 {
-  "pattern_pack_version": 4.1,
+  "pattern_pack_version": 4.2,
   "language_mode": "english_generic",
   "vertical": "travel_ota",
-  "notes": "v4.1 (2026-05-21): six review-driven fixes against the v4 reviewer-agent QA sample. (1) Orphan first-name truncations on long-name destinations are now prevented by the resolver's head-token surfacing step ('Fernando De Noronha' → 'Noronha', 'Bandar Seri Begawan' → 'Begawan'); _fill_pattern also computes pattern-aware name budgets so the resolver gets a tight, accurate budget per pattern. (2) The PKC source-transcription error ('Petropavlovsk-Kamchats, Russian Federation' → 'Petropavlovsk-Kamchatsky') is fixed via cleaner diff. (3) 'Cheap Flights to {name}' banned phrase is filtered in both keyword-fallback paths AND in _fill_pattern's post-render guard. (4) Triple-Trustpilot collision: dropped 'Trustpilot rated 4.5★' (headline_patterns) and '4.5★ Trustpilot reviews' (tail_headlines) — kept the pinned '4.5★ on Trustpilot'. (6) Fares-update triplet: dropped 'Fares update every hour' (headline_patterns + cta_pinned) and 'Fares updated hourly' (tail_headlines) — kept the destination-anchored '{name} fares update hourly'. v4 baseline: NO SKU/IATA codes in customer-facing copy — operator constraint. All long-name fallbacks use name-shortening (paren-strip, comma-segment, particle-strip, head-token), never {sku}. discount_led variant carries the MANDATORY 'Save up to {discount_pct}% to {name}' headline pattern (force-injected with fit-aware fallback chain that requires every word of the resolved name to survive). price_led carries the MANDATORY 'Get a great deal on flights to {name} from ${from_price}' description. Every ad group with from_price known must surface ${from_price} in at least one headline or description. Banned/misleading phrases from v2/v3 ('Top-rated travel agent', 'ATOL-style protection', 'Was full price, now -X%', 'Today only: X% off', 'Final seats', 'Last-minute', 'Cheap {name} flights', 'Member, IATA accredited', 'Price Drop Alerts Free', any ' - ' sentence-pause hyphen, any {sku}-substituted customer copy) are removed.",
+  "notes": "v4.2 (2026-05-24): SYMBOLS policy fix — the BLACK STAR glyph (U+2605) in the Trustpilot social-proof lines ('4.5* on Trustpilot', 'Price-match guarantee on {name}. 4.5* Trustpilot...') triggered Google's RSA SYMBOLS prohibition and got the social_proof variant of all 963 etraveli ad groups rejected at create time (963 of the 991 RSA drops). Replaced every star with '4.5/5'. Guarded by tests/test_rsa_variants.py::test_no_prohibited_symbols_in_rsa_copy. v4.1 (2026-05-21): six review-driven fixes against the v4 reviewer-agent QA sample. (1) Orphan first-name truncations on long-name destinations are now prevented by the resolver's head-token surfacing step ('Fernando De Noronha' → 'Noronha', 'Bandar Seri Begawan' → 'Begawan'); _fill_pattern also computes pattern-aware name budgets so the resolver gets a tight, accurate budget per pattern. (2) The PKC source-transcription error ('Petropavlovsk-Kamchats, Russian Federation' → 'Petropavlovsk-Kamchatsky') is fixed via cleaner diff. (3) 'Cheap Flights to {name}' banned phrase is filtered in both keyword-fallback paths AND in _fill_pattern's post-render guard. (4) Triple-Trustpilot collision: dropped 'Trustpilot rated 4.5/5' (headline_patterns) and '4.5/5 Trustpilot reviews' (tail_headlines) — kept the pinned '4.5/5 on Trustpilot'. (6) Fares-update triplet: dropped 'Fares update every hour' (headline_patterns + cta_pinned) and 'Fares updated hourly' (tail_headlines) — kept the destination-anchored '{name} fares update hourly'. v4 baseline: NO SKU/IATA codes in customer-facing copy — operator constraint. All long-name fallbacks use name-shortening (paren-strip, comma-segment, particle-strip, head-token), never {sku}. discount_led variant carries the MANDATORY 'Save up to {discount_pct}% to {name}' headline pattern (force-injected with fit-aware fallback chain that requires every word of the resolved name to survive). price_led carries the MANDATORY 'Get a great deal on flights to {name} from ${from_price}' description. Every ad group with from_price known must surface ${from_price} in at least one headline or description. Banned/misleading phrases from v2/v3 ('Top-rated travel agent', 'ATOL-style protection', 'Was full price, now -X%', 'Today only: X% off', 'Final seats', 'Last-minute', 'Cheap {name} flights', 'Member, IATA accredited', 'Price Drop Alerts Free', any ' - ' sentence-pause hyphen, any {sku}-substituted customer copy) are removed.",
   "pinning_strategy": {
     "headline_1": "brand - Pin company name (Flightnetwork)",
     "headline_2": "destination - Pin {name} or '{name} Flights' for relevance",
@@ -95,7 +95,7 @@
         {"pattern": "{name}, 800+ airlines", "type": "catalog", "max_chars": 30},
         {"pattern": "1.5M travelers, every year", "type": "social_proof", "max_chars": 30},
         {"pattern": "Price-match {name} fares", "type": "catalog", "max_chars": 30},
-        {"pattern": "4.5★ on Trustpilot", "type": "social_proof", "max_chars": 30},
+        {"pattern": "4.5/5 on Trustpilot", "type": "social_proof", "max_chars": 30},
         {"pattern": "Real prices, no markup", "type": "trust", "max_chars": 30},
         {"pattern": "IATA-accredited agent", "type": "trust", "max_chars": 30},
         {"pattern": "24/7 customer support", "type": "trust", "max_chars": 30},
@@ -103,13 +103,13 @@
       ],
       "description_patterns": [
         {"pattern": "Flightnetwork compares 800+ airlines. {name} from ${from_price}.", "type": "catalog", "max_chars": 90, "requires_from_price": true},
-        {"pattern": "Price-match guarantee on {name}. 4.5★ Trustpilot, free 24h cancel.", "type": "catalog", "max_chars": 90},
+        {"pattern": "Price-match guarantee on {name}. 4.5/5 Trustpilot, free 24h cancel.", "type": "catalog", "max_chars": 90},
         {"pattern": "Trusted by 1.5M travelers. Compare every {name} fare in one search.", "type": "catalog", "max_chars": 90},
         {"pattern": "IATA-accredited agent. {name} fares from ${from_price}, refund policy.", "type": "catalog", "max_chars": 90, "requires_from_price": true}
       ],
       "cta_pinned": [
         {"pattern": "Compare 800+ airlines", "max_chars": 30},
-        {"pattern": "4.5★ on Trustpilot", "max_chars": 30},
+        {"pattern": "4.5/5 on Trustpilot", "max_chars": 30},
         {"pattern": "Book with confidence", "max_chars": 30}
       ],
       "tail_headlines": [

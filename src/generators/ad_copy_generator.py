@@ -1450,7 +1450,12 @@ def generate_headlines_for_variant(
                     nm = ""
                     candidate = template.format(pct=pct_str)
                 forced = _fit_to_limit(candidate, 30, language)
-                if not forced or pct_str not in forced or forced in seen_texts:
+                # `seen_texts` holds casefolded keys (see `_add`). Compare on
+                # the same normalization or a case-variant pattern headline
+                # (e.g. "Save 28% on X") slips past and duplicates the forced
+                # line — which Google rejects as "Assets are duplicated across
+                # operations" at create time.
+                if not forced or pct_str not in forced or forced.casefold() in seen_texts:
                     continue
                 # v0.3.4 orphan guard: if the resolved name is multi-word, all
                 # its words must survive truncation. Otherwise we'd ship
@@ -1465,7 +1470,7 @@ def generate_headlines_for_variant(
                     headlines.append(AdHeadline(text=forced))
                 else:
                     headlines[-1] = AdHeadline(text=forced)
-                seen_texts.add(forced)
+                seen_texts.add(forced.casefold())
                 break
 
         # 2. Top-up to the 3-mention floor. Same name-resolved candidates,
@@ -1483,13 +1488,18 @@ def generate_headlines_for_variant(
             added = False
             for cand in candidates:
                 forced = _fit_to_limit(cand, 30, language)
-                if not forced or pct_str not in forced or forced in seen_texts:
+                # `seen_texts` holds casefolded keys (see `_add`). Compare on
+                # the same normalization or a case-variant pattern headline
+                # (e.g. "Save 28% on X") slips past and duplicates the forced
+                # line — which Google rejects as "Assets are duplicated across
+                # operations" at create time.
+                if not forced or pct_str not in forced or forced.casefold() in seen_texts:
                     continue
                 if len(headlines) < 15:
                     headlines.append(AdHeadline(text=forced))
                 else:
                     headlines[-1] = AdHeadline(text=forced)
-                seen_texts.add(forced)
+                seen_texts.add(forced.casefold())
                 added = True
                 break
             if not added:
@@ -1500,11 +1510,11 @@ def generate_headlines_for_variant(
         fallback = _fit_to_limit(
             f"{client.business_name} - {ad_group_theme[:18]}", 30, language,
         )
-        if not fallback or fallback in seen_texts:
+        if not fallback or fallback.casefold() in seen_texts:
             fallback = f"{client.business_name[:30]}"
-        if fallback in seen_texts:
+        if fallback.casefold() in seen_texts:
             fallback = ad_group_theme[:30] or client.business_name[:30]
-        seen_texts.add(fallback)
+        seen_texts.add(fallback.casefold())
         headlines.append(AdHeadline(text=fallback))
 
     return headlines[:15]
